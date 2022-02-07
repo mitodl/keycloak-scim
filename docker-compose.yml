@@ -1,0 +1,32 @@
+version: "3"
+
+services:
+  postgres:
+    image: postgres
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    ports:
+      - 5432:5432
+  keycloak:
+    image: quay.io/keycloak/keycloak:16.1.1
+    volumes:
+      - ./target/keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar:/opt/jboss/keycloak/standalone/deployments/keycloak-scim-1.0-SNAPSHOT.jar
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_SCHEMA: public
+      DB_PASSWORD: keycloak
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+    ports:
+      - 8080:8080
+    depends_on:
+      - postgres
+
+volumes:
+  db:
