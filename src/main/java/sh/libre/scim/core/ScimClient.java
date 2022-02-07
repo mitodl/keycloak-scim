@@ -19,23 +19,24 @@ import javax.ws.rs.client.Client;
 
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
+import org.keycloak.connections.jpa.JpaConnectionProvider;
+import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
 import sh.libre.scim.jpa.ScimResource;
 
 public class ScimClient {
 
-    final Logger LOGGER = Logger.getLogger(ScimClient.class);
-    final Client client = ResteasyClientBuilder.newClient();
-    final ScimService scimService;
-    final RetryRegistry registry;
-    final String name;
-    final String realmId;
-    final EntityManager entityManager;
+    final private Logger LOGGER = Logger.getLogger(ScimClient.class);
+    final private Client client = ResteasyClientBuilder.newClient();
+    final private ScimService scimService;
+    final private RetryRegistry registry;
+    final private String name;
+    final private KeycloakSession session;
 
-    public ScimClient(String name, String url, String realmId, EntityManager entityManager) {
+    public ScimClient(String name, String url, KeycloakSession session) {
         this.name = name;
-        this.realmId = realmId;
-        this.entityManager = entityManager;
+
+        this.session = session;
         var target = client.target(url);
         scimService = new ScimService(target);
 
@@ -44,6 +45,14 @@ public class ScimClient {
                 .intervalFunction(IntervalFunction.ofExponentialBackoff())
                 .build();
         registry = RetryRegistry.of(retryConfig);
+    }
+
+    private EntityManager getEM() {
+        return session.getProvider(JpaConnectionProvider.class).getEntityManager();
+    }
+
+    private String getRealmId() {
+        return session.getContext().getRealm().getId();
     }
 
     public void createUser(UserModel kcUser) {
@@ -58,7 +67,7 @@ public class ScimClient {
             }
         });
         var scimUser = toScimUser(spUser);
-        entityManager.persist(scimUser);
+        getEM().persist(scimUser);
     }
 
     public void replaceUser(UserModel kcUser) {
@@ -80,7 +89,7 @@ public class ScimClient {
                 }
             });
         } catch (NoResultException e) {
-            LOGGER.warnf("Failde to replce user %s, scim mapping not found", kcUser.getId());
+            LOGGER.warnf("Failde to repalce user %s, scim mapping not found", kcUser.getId());
         } catch (Exception e) {
             LOGGER.error(e);
         }
@@ -99,16 +108,16 @@ public class ScimClient {
                 }
                 return "";
             });
-            entityManager.remove(resource);
+            getEM().remove(resource);
         } catch (NoResultException e) {
-            LOGGER.warnf("Failde to replce user %s, scim mapping not found", userId);
+            LOGGER.warnf("Failde to delete user %s, scim mapping not found", userId);
         }
     }
 
     private TypedQuery<ScimResource> queryUser(String query) {
-        return entityManager
+        return getEM()
                 .createNamedQuery(query, ScimResource.class)
-                .setParameter("realmId", realmId)
+                .setParameter("realmId", getRealmId())
                 .setParameter("type", "Users")
                 .setParameter("serviceProvider", name);
     }
@@ -120,7 +129,7 @@ public class ScimClient {
     private ScimResource scimUser() {
         var resource = new ScimResource();
         resource.setType("Users");
-        resource.setRealmId(realmId);
+        resource.setRealmId(getRealmId());
         resource.setServiceProvider(name);
         return resource;
     }

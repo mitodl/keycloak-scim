@@ -35,16 +35,16 @@ public class ScimResource {
         @Column(name = "LOCAL_ID", nullable = false)
         private String localId;
 
-        public ScimResource() {
-        }
+        // public ScimResource() {
+        // }
 
-        public ScimResource(String realmId, String serviceProvider, String type, String remoteId, String localId) {
-                this.realmId = realmId;
-                this.serviceProvider = serviceProvider;
-                this.type = type;
-                this.remoteId = remoteId;
-                this.localId = localId;
-        }
+        // public ScimResource(String realmId, String serviceProvider, String type, String remoteId, String localId) {
+        //         this.realmId = realmId;
+        //         this.serviceProvider = serviceProvider;
+        //         this.type = type;
+        //         this.remoteId = remoteId;
+        //         this.localId = localId;
+        // }
 
         public String getRealmId() {
                 return realmId;

@@ -20,12 +20,10 @@ public class ScimEventListenerProvider implements EventListenerProvider {
     public ScimEventListenerProvider(KeycloakSession session) {
         this.session = session;
         dispatcher = new ScimDispatcher(session);
-
     }
 
     @Override
     public void close() {
-        dispatcher.close();
     }
 
     @Override
@@ -45,9 +43,6 @@ public class ScimEventListenerProvider implements EventListenerProvider {
 
     @Override
     public void onEvent(AdminEvent event, boolean includeRepresentation) {
-        if (event.getResourceType() == ResourceType.CLIENT) {
-            dispatcher.reloadClients();
-        }
         if (event.getResourceType() == ResourceType.USER) {
             var userId = event.getResourcePath().replace("users/", "");
             LOGGER.infof("%s %s", userId, event.getOperationType());

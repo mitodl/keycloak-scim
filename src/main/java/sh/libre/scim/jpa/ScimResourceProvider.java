@@ -4,13 +4,13 @@ import java.util.List;
 
 import org.keycloak.connections.jpa.entityprovider.JpaEntityProvider;
 
-import java.util.Arrays;
+import java.util.Collections;
 
 public class ScimResourceProvider implements JpaEntityProvider {
 
     @Override
     public List<Class<?>> getEntities() {
-        return Arrays.asList(ScimResource.class);
+        return Collections.singletonList(ScimResource.class);
     }
 
     @Override
