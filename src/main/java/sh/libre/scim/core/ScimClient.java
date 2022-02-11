@@ -32,9 +32,11 @@ public class ScimClient {
     final private RetryRegistry registry;
     final private String name;
     final private KeycloakSession session;
+    final private String contentType;
 
-    public ScimClient(String name, String url, KeycloakSession session) {
+    public ScimClient(String name, String url, String contentType, KeycloakSession session) {
         this.name = name;
+        this.contentType = contentType;
 
         this.session = session;
         var target = client.target(url);
@@ -61,12 +63,13 @@ public class ScimClient {
         var retry = registry.retry("create-" + kcUser.getId());
         var spUser = retry.executeSupplier(() -> {
             try {
-                return scimService.create("Users", user);
+                return scimService.createRequest("Users", user).contentType(contentType).invoke();
             } catch (ScimException e) {
                 throw new RuntimeException(e);
             }
         });
         var scimUser = toScimUser(spUser);
+        scimUser.setLocalId(kcUser.getId());
         getEM().persist(scimUser);
     }
 
@@ -83,7 +86,7 @@ public class ScimClient {
             var retry = registry.retry("replace-" + kcUser.getId());
             retry.executeSupplier(() -> {
                 try {
-                    return scimService.replace(user);
+                    return scimService.replaceRequest(user).contentType(contentType).invoke();
                 } catch (ScimException e) {
                     throw new RuntimeException(e);
                 }
@@ -102,7 +105,7 @@ public class ScimClient {
             var retry = registry.retry("delete-" + userId);
             retry.executeSupplier(() -> {
                 try {
-                    scimService.delete("Users", resource.getRemoteId());
+                    scimService.deleteRequest("Users", resource.getRemoteId()).contentType(contentType).invoke();
                 } catch (ScimException e) {
                     throw new RuntimeException(e);
                 }
@@ -149,6 +152,7 @@ public class ScimClient {
         name.setGivenName(kcUser.getFirstName());
         name.setFamilyName(kcUser.getLastName());
         user.setName(name);
+        user.setDisplayName(kcUser.getFirstName() + " " + kcUser.getLastName());
 
         var emails = new ArrayList<Email>();
         if (kcUser.getEmail() != "") {
@@ -156,6 +160,7 @@ public class ScimClient {
             emails.add(email);
         }
         user.setEmails(emails);
+        user.setActive(kcUser.isEnabled());
         return user;
     }
 

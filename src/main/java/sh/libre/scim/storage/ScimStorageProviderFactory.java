@@ -2,6 +2,10 @@ package sh.libre.scim.storage;
 
 import java.util.List;
 
+import javax.ws.rs.core.MediaType;
+
+import com.unboundid.scim2.client.ScimService;
+
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.provider.ProviderConfigProperty;
@@ -19,6 +23,14 @@ public class ScimStorageProviderFactory implements UserStorageProviderFactory<Sc
                 .label("SCIM 2.0 endpoint")
                 .helpText("External SCIM 2.0 base " +
                         "URL (/ServiceProviderConfig  /Schemas and /ResourcesTypes should be accessible)")
+                .add()
+                .property()
+                .name("content-type")
+                .type(ProviderConfigProperty.LIST_TYPE)
+                .label("Endpoint content type")
+                .helpText("Only used when endpoint doesn't support application/scim+json")
+                .options(MediaType.APPLICATION_JSON.toString(), ScimService.MEDIA_TYPE_SCIM_TYPE.toString())
+                .defaultValue(ScimService.MEDIA_TYPE_SCIM_TYPE.toString())
                 .add()
                 .build();
     }

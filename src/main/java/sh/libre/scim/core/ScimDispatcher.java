@@ -17,11 +17,11 @@ public class ScimDispatcher {
     public void run(Consumer<ScimClient> f) {
         session.getContext().getRealm().getComponentsStream()
                 .filter((m) -> {
-                    return ScimStorageProviderFactory.ID.equals(m.getProviderId());
+                    return ScimStorageProviderFactory.ID.equals(m.getProviderId()) && m.get("enabled").equals("true");
                 })
                 .forEach(m -> {
                     LOGGER.infof("%s %s %s %s", m.getId(), m.getName(), m.getProviderId(), m.getProviderType());
-                    var client = new ScimClient(m.getName(), m.get("endpoint"), session);
+                    var client = new ScimClient(m.getName(), m.get("endpoint"), m.get("content-type"), session);
                     try {
                         f.accept(client);
                     } finally {
