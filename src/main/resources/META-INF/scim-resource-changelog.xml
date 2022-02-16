@@ -21,6 +21,8 @@
         </createTable>
 
         <addPrimaryKey constraintName="PK_SCIM_RESOURCE" tableName="SCIM_RESOURCE" columnNames="REALM_ID,SERVICE_PROVIDER,TYPE,REMOTE_ID" />
+        <addForeignKeyConstraint baseTableName="SCIM_RESOURCE" baseColumnNames="REALM_ID" constraintName="FK_SCIM_RESOURCE_REALM" referencedTableName="REALM" referencedColumnNames="ID" onDelete="CASCADE" onUpdate="CASCADE" />
+        <addForeignKeyConstraint baseTableName="SCIM_RESOURCE" baseColumnNames="SERVICE_PROVIDER" constraintName="FK_SCIM_RESOURCE_COMPONENT" referencedTableName="COMPONENT" referencedColumnNames="ID" onDelete="CASCADE" onUpdate="CASCADE" />
 
     </changeSet>
 

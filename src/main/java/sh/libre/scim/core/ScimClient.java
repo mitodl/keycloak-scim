@@ -23,6 +23,9 @@ import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.jpa.entities.ComponentEntity;
+import org.keycloak.models.jpa.entities.RealmEntity;
+
 import sh.libre.scim.jpa.ScimResource;
 
 public class ScimClient {
@@ -31,22 +34,18 @@ public class ScimClient {
     final private Client client = ResteasyClientBuilder.newClient();
     final private ScimService scimService;
     final private RetryRegistry registry;
-    final private String name;
     final private KeycloakSession session;
     final private String contentType;
-    final private String authMode;
-    final private String bearerToken;
+    final private ComponentModel model;
 
     public ScimClient(ComponentModel model, KeycloakSession session) {
-        this.name = model.getName();
+        this.model = model;
         this.contentType = model.get("content-type");
-        this.authMode = model.get("auth-mode");
-        this.bearerToken = model.get("auth-bearer-token");
 
         this.session = session;
         var target = client.target(model.get("endpoint"));
-        if (this.authMode.equals("BEARER")) {
-            target = target.register(new BearerAuthentication(this.bearerToken));
+        if (model.get("auth-mode").equals("BEARER")) {
+            target = target.register(new BearerAuthentication(model.get("auth-bearer-token")));
         }
 
         scimService = new ScimService(target);
@@ -64,6 +63,14 @@ public class ScimClient {
 
     private String getRealmId() {
         return session.getContext().getRealm().getId();
+    }
+
+    private RealmEntity getRealmEntity() {
+        return getEM().getReference(RealmEntity.class, getRealmId());
+    }
+
+    private ComponentEntity getSPEntity() {
+        return getEM().getReference(ComponentEntity.class, this.model.getId());
     }
 
     public void createUser(UserModel kcUser) {
@@ -129,9 +136,9 @@ public class ScimClient {
     private TypedQuery<ScimResource> queryUser(String query) {
         return getEM()
                 .createNamedQuery(query, ScimResource.class)
-                .setParameter("realmId", getRealmId())
+                .setParameter("realm", getRealmEntity())
                 .setParameter("type", "Users")
-                .setParameter("serviceProvider", name);
+                .setParameter("serviceProvider", getSPEntity());
     }
 
     private ScimResource querUserById(String id) {
@@ -141,8 +148,8 @@ public class ScimClient {
     private ScimResource scimUser() {
         var resource = new ScimResource();
         resource.setType("Users");
-        resource.setRealmId(getRealmId());
-        resource.setServiceProvider(name);
+        resource.setRealm(getRealmEntity());
+        resource.setServiceProvider(getSPEntity());
         return resource;
     }
 

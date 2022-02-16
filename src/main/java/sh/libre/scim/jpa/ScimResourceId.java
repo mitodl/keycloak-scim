@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class ScimResourceId implements Serializable {
-    private String realmId;
+    private String realm;
     private String serviceProvider;
     private String type;
     private String remoteId;
@@ -12,19 +12,19 @@ public class ScimResourceId implements Serializable {
     public ScimResourceId() {
     }
 
-    public ScimResourceId(String realmId, String serviceProvider, String type, String remoteId) {
-        this.realmId = realmId;
+    public ScimResourceId(String realm, String serviceProvider, String type, String remoteId) {
+        this.realm = realm;
         this.serviceProvider = serviceProvider;
         this.type = type;
         this.remoteId = remoteId;
     }
 
-    public String getRealmId() {
-        return realmId;
+    public String getRealm() {
+        return realm;
     }
 
-    public void setRealmId(String realmId) {
-        this.realmId = realmId;
+    public void setRealm(String realm) {
+        this.realm = realm;
     }
 
     public String getServiceProvider() {
@@ -44,7 +44,7 @@ public class ScimResourceId implements Serializable {
     }
 
     public String getRemoteId() {
-        return realmId;
+        return remoteId;
     }
 
     public void setRemoteId(String remoteId) {
@@ -58,7 +58,7 @@ public class ScimResourceId implements Serializable {
         if (!(other instanceof ScimResourceId))
             return false;
         var o = (ScimResourceId) other;
-        return (o.realmId == realmId &&
+        return (o.realm == realm &&
                 o.serviceProvider == serviceProvider &&
                 o.type == type &&
                 o.remoteId == remoteId);
@@ -66,6 +66,6 @@ public class ScimResourceId implements Serializable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(realmId, serviceProvider, type, remoteId);
+        return Objects.hash(realm, serviceProvider, type, remoteId);
     }
 }
