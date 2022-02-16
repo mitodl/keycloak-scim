@@ -32,6 +32,20 @@ public class ScimStorageProviderFactory implements UserStorageProviderFactory<Sc
                 .options(MediaType.APPLICATION_JSON.toString(), ScimService.MEDIA_TYPE_SCIM_TYPE.toString())
                 .defaultValue(ScimService.MEDIA_TYPE_SCIM_TYPE.toString())
                 .add()
+                .property()
+                .name("auth-mode")
+                .type(ProviderConfigProperty.LIST_TYPE)
+                .label("Auth mode")
+                .helpText("Select the authorization mode")
+                .options("NONE", "BEARER")
+                .defaultValue("NONE")
+                .add()
+                .property()
+                .name("auth-bearer-token")
+                .type(ProviderConfigProperty.PASSWORD)
+                .label("Bearer token")
+                .helpText("Add a bearer token in the authorization header")
+                .add()
                 .build();
     }
 

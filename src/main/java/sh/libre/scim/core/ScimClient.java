@@ -19,6 +19,7 @@ import javax.ws.rs.client.Client;
 
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
+import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
@@ -33,13 +34,21 @@ public class ScimClient {
     final private String name;
     final private KeycloakSession session;
     final private String contentType;
+    final private String authMode;
+    final private String bearerToken;
 
-    public ScimClient(String name, String url, String contentType, KeycloakSession session) {
-        this.name = name;
-        this.contentType = contentType;
+    public ScimClient(ComponentModel model, KeycloakSession session) {
+        this.name = model.getName();
+        this.contentType = model.get("content-type");
+        this.authMode = model.get("auth-mode");
+        this.bearerToken = model.get("auth-bearer-token");
 
         this.session = session;
-        var target = client.target(url);
+        var target = client.target(model.get("endpoint"));
+        if (this.authMode.equals("BEARER")) {
+            target = target.register(new BearerAuthentication(this.bearerToken));
+        }
+
         scimService = new ScimService(target);
 
         RetryConfig retryConfig = RetryConfig.custom()
@@ -92,7 +101,7 @@ public class ScimClient {
                 }
             });
         } catch (NoResultException e) {
-            LOGGER.warnf("Failde to repalce user %s, scim mapping not found", kcUser.getId());
+            LOGGER.warnf("Failed to repalce user %s, scim mapping not found", kcUser.getId());
         } catch (Exception e) {
             LOGGER.error(e);
         }

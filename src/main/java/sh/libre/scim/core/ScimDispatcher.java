@@ -21,7 +21,7 @@ public class ScimDispatcher {
                 })
                 .forEach(m -> {
                     LOGGER.infof("%s %s %s %s", m.getId(), m.getName(), m.getProviderId(), m.getProviderType());
-                    var client = new ScimClient(m.getName(), m.get("endpoint"), m.get("content-type"), session);
+                    var client = new ScimClient(m, session);
                     try {
                         f.accept(client);
                     } finally {
