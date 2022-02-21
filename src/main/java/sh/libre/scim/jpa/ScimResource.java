@@ -4,57 +4,67 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import javax.persistence.NamedQuery;
 import javax.persistence.NamedQueries;
 import javax.persistence.Table;
-
-import org.keycloak.models.jpa.entities.ComponentEntity;
-import org.keycloak.models.jpa.entities.RealmEntity;
 
 @Entity
 @IdClass(ScimResourceId.class)
 @Table(name = "SCIM_RESOURCE")
 @NamedQueries({
-                @NamedQuery(name = "findByLocalId", query = "from ScimResource where realm = :realm and type = :type and serviceProvider = :serviceProvider and localId = :id"),
-                @NamedQuery(name = "findByRemoteId", query = "from ScimResource where realm = :realm and type = :type and serviceProvider = :serviceProvider and remoteId = :id") })
+                @NamedQuery(name = "findById", query = "from ScimResource where realmId = :realmId and componentId = :componentId and type = :type and id = :id"),
+                @NamedQuery(name = "findByExternalId", query = "from ScimResource where realmId = :realmId and componentId = :componentId and type = :type and externalId = :id") })
 public class ScimResource {
         @Id
-        @ManyToOne
-        @JoinColumn(name = "REALM_ID", referencedColumnName = "ID")
-        private RealmEntity realm;
+        @Column(name = "ID", nullable = false)
+        private String id;
 
         @Id
-        @ManyToOne
-        @JoinColumn(name = "SERVICE_PROVIDER", referencedColumnName = "ID")
-        private ComponentEntity serviceProvider;
-        
+        @Column(name = "REALM_ID", nullable = false)
+        private String realmId;
+
+        @Id
+        @Column(name = "COMPONENT_ID", nullable = false)
+        private String componentId;
+
         @Id
         @Column(name = "TYPE", nullable = false)
         private String type;
 
         @Id
-        @Column(name = "LOCAL_ID", nullable = false)
-        private String localId;
+        @Column(name = "EXTERNAL_ID", nullable = false)
+        private String externalId;
 
-        @Column(name = "REMOTE_ID", nullable = false)
-        private String remoteId;
-
-        public RealmEntity getRealm() {
-                return realm;
+        public String getId() {
+                return id;
         }
 
-        public void setRealm(RealmEntity realm) {
-                this.realm = realm;
+        public void setId(String id) {
+                this.id = id;
         }
 
-        public ComponentEntity getServiceProvider() {
-                return serviceProvider;
+        public String getRealmId() {
+                return realmId;
         }
 
-        public void setServiceProvider(ComponentEntity serviceProvider) {
-                this.serviceProvider = serviceProvider;
+        public void setRealmId(String realmId) {
+                this.realmId = realmId;
+        }
+
+        public String getComponentId() {
+                return componentId;
+        }
+
+        public void setComponentId(String componentId) {
+                this.componentId = componentId;
+        }
+
+        public String getExternalId() {
+                return externalId;
+        }
+
+        public void setExternalId(String externalId) {
+                this.externalId = externalId;
         }
 
         public String getType() {
@@ -65,19 +75,4 @@ public class ScimResource {
                 this.type = type;
         }
 
-        public String getRemoteId() {
-                return remoteId;
-        }
-
-        public void setRemoteId(String remoteId) {
-                this.remoteId = remoteId;
-        }
-
-        public String getLocalId() {
-                return localId;
-        }
-
-        public void setLocalId(String localId) {
-                this.localId = localId;
-        }
 }

@@ -4,35 +4,45 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class ScimResourceId implements Serializable {
-    private String realm;
-    private String serviceProvider;
+    private String id;
+    private String realmId;
+    private String componentId;
     private String type;
-    private String remoteId;
+    private String externalId;
 
     public ScimResourceId() {
     }
 
-    public ScimResourceId(String realm, String serviceProvider, String type, String remoteId) {
-        this.realm = realm;
-        this.serviceProvider = serviceProvider;
-        this.type = type;
-        this.remoteId = remoteId;
+    public ScimResourceId(String id, String realmId, String componentId, String type, String externalId) {
+        this.setId(id);
+        this.setRealmId(realmId);
+        this.setComponentId(componentId);
+        this.setType(type);
+        this.setExternalId(externalId);
     }
 
-    public String getRealm() {
-        return realm;
+    public String getId() {
+        return id;
     }
 
-    public void setRealm(String realm) {
-        this.realm = realm;
+    public void setId(String id) {
+        this.id = id;
     }
 
-    public String getServiceProvider() {
-        return serviceProvider;
+    public String getRealmId() {
+        return realmId;
     }
 
-    public void setServiceProvider(String serviceProvider) {
-        this.serviceProvider = serviceProvider;
+    public void setRealmId(String realmId) {
+        this.realmId = realmId;
+    }
+
+    public String getComponentId() {
+        return componentId;
+    }
+
+    public void setComponentId(String componentId) {
+        this.componentId = componentId;
     }
 
     public String getType() {
@@ -43,12 +53,12 @@ public class ScimResourceId implements Serializable {
         this.type = type;
     }
 
-    public String getRemoteId() {
-        return remoteId;
+    public String getExternalId() {
+        return externalId;
     }
 
-    public void setRemoteId(String remoteId) {
-        this.remoteId = remoteId;
+    public void setExternalId(String externalId) {
+        this.externalId = externalId;
     }
 
     @Override
@@ -58,14 +68,15 @@ public class ScimResourceId implements Serializable {
         if (!(other instanceof ScimResourceId))
             return false;
         var o = (ScimResourceId) other;
-        return (o.realm == realm &&
-                o.serviceProvider == serviceProvider &&
+        return (o.id == id &&
+                o.realmId == realmId &&
+                o.componentId == componentId &&
                 o.type == type &&
-                o.remoteId == remoteId);
+                o.externalId == externalId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(realm, serviceProvider, type, remoteId);
+        return Objects.hash(realmId, componentId, type, id, externalId);
     }
 }
