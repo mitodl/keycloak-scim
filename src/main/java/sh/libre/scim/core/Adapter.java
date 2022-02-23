@@ -1,10 +1,14 @@
 package sh.libre.scim.core;
 
+import java.util.stream.Stream;
+
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.NotFoundException;
 
 import org.jboss.logging.Logger;
+import org.keycloak.connections.jpa.JpaConnectionProvider;
+import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RoleMapperModel;
 
 import sh.libre.scim.jpa.ScimResource;
@@ -16,14 +20,16 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
     protected final String type;
     protected final String componentId;
     protected final EntityManager em;
+    protected final KeycloakSession session;
 
     protected String id;
     protected String externalId;
 
-    public Adapter(String realmId, String componentId, EntityManager em, String type, Logger logger) {
-        this.realmId = realmId;
+    public Adapter(KeycloakSession session, String componentId, String type, Logger logger) {
+        this.session = session;
+        this.realmId = session.getContext().getRealm().getId();
         this.componentId = componentId;
-        this.em = em;
+        this.em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
         this.type = type;
         this.LOGGER = logger;
     }
@@ -63,6 +69,10 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
     }
 
     public TypedQuery<ScimResource> query(String query, String id) {
+        return query(query, id, type);
+    }
+
+    public TypedQuery<ScimResource> query(String query, String id, String type) {
         return this.em
                 .createNamedQuery(query, ScimResource.class)
                 .setParameter("type", type)
@@ -92,14 +102,20 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
     }
 
     public void deleteMapping() {
-        this.em.remove(this.toMapping());
+        var mapping = this.em.merge(toMapping());
+        this.em.remove(mapping);
+    }
+
+    public void apply(ScimResource mapping) {
+        setId(mapping.getId());
+        setExternalId(mapping.getExternalId());
     }
 
     public abstract void apply(M model);
 
     public abstract void apply(S resource);
 
-    public abstract void apply(ScimResource resource);
+    public abstract Class<S> getResourceClass();
 
     public abstract S toSCIM(Boolean addMeta);
 
@@ -107,4 +123,9 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
 
     public abstract Boolean tryToMap();
 
+    public abstract void createEntity();
+    
+    public abstract Stream<M> getResourceStream();
+
+    public abstract Boolean skipRefresh();
 }

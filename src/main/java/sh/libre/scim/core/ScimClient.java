@@ -7,7 +7,6 @@ import javax.ws.rs.client.Client;
 import com.unboundid.scim2.client.ScimService;
 import com.unboundid.scim2.common.ScimResource;
 import com.unboundid.scim2.common.exceptions.ScimException;
-import com.unboundid.scim2.common.types.UserResource;
 
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
@@ -17,7 +16,6 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RoleMapperModel;
 import org.keycloak.storage.user.SynchronizationResult;
 
-import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
 
@@ -60,8 +58,8 @@ public class ScimClient {
     protected <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> A getAdapter(
             Class<A> aClass) {
         try {
-            return aClass.getDeclaredConstructor(String.class, String.class, EntityManager.class)
-                    .newInstance(getRealmId(), this.model.getId(), getEM());
+            return aClass.getDeclaredConstructor(KeycloakSession.class, String.class)
+                    .newInstance(session, this.model.getId());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -72,16 +70,18 @@ public class ScimClient {
         var adapter = getAdapter(aClass);
         adapter.apply(kcModel);
         var retry = registry.retry("create-" + adapter.getId());
-        var spUser = retry.executeSupplier(() -> {
+        var resource = retry.executeSupplier(() -> {
             try {
-                return scimService.createRequest(adapter.getSCIMEndpoint(), adapter.toSCIM(false))
+                return scimService.createRequest(adapter.getSCIMEndpoint(),
+                        adapter.toSCIM(false))
                         .contentType(contentType).invoke();
             } catch (ScimException e) {
                 throw new RuntimeException(e);
             }
         });
-        adapter.apply(spUser);
+        adapter.apply(resource);
         adapter.saveMapping();
+
     };
 
     public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void replace(Class<A> aClass,
@@ -129,35 +129,41 @@ public class ScimClient {
         }
     }
 
-    public void refreshUsers(SynchronizationResult syncRes) {
-        LOGGER.info("Refresh Users");
-        this.session.users().getUsersStream(this.session.getContext().getRealm()).forEach(kcUser -> {
-            LOGGER.infof("Reconciling local user %s", kcUser.getId());
-            if (!kcUser.getUsername().equals("admin")) {
-                var adapter = getAdapter(UserAdapter.class);
-                adapter.apply(kcUser);
+    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void refreshResources(
+            Class<A> aClass,
+            SynchronizationResult syncRes) {
+        LOGGER.info("Refresh resources");
+        getAdapter(aClass).getResourceStream().forEach(resource -> {
+            var adapter = getAdapter(aClass);
+            adapter.apply(resource);
+            LOGGER.infof("Reconciling local resource %s", adapter.getId());
+            if (!adapter.skipRefresh()) {
                 var mapping = adapter.getMapping();
                 if (mapping == null) {
                     LOGGER.info("Creating it");
-                    this.create(UserAdapter.class, kcUser);
+                    this.create(aClass, resource);
                 } else {
                     LOGGER.info("Replacing it");
-                    this.replace(UserAdapter.class, kcUser);
+                    this.replace(aClass, resource);
                 }
                 syncRes.increaseUpdated();
             }
         });
+
     }
 
-    public void importUsers(SynchronizationResult syncRes) {
-        LOGGER.info("Import Users");
+    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void importResources(
+            Class<A> aClass, SynchronizationResult syncRes) {
+        LOGGER.info("Import");
         try {
-            var spUsers = scimService.searchRequest("Users").contentType(contentType).invoke(UserResource.class);
-            for (var spUser : spUsers) {
+            var adapter = getAdapter(aClass);
+            var resources = scimService.searchRequest(adapter.getSCIMEndpoint()).contentType(contentType)
+                    .invoke(adapter.getResourceClass());
+            for (var resource : resources) {
                 try {
-                    LOGGER.infof("Reconciling remote user %s", spUser.getId());
-                    var adapter = getAdapter(UserAdapter.class);
-                    adapter.apply(spUser);
+                    LOGGER.infof("Reconciling remote resource %s", resource.getId());
+                    adapter = getAdapter(aClass);
+                    adapter.apply(resource);
 
                     var mapping = adapter.getMapping();
                     if (mapping != null) {
@@ -173,25 +179,28 @@ public class ScimClient {
 
                     var mapped = adapter.tryToMap();
                     if (mapped) {
-                        LOGGER.info("Matched a user");
+                        LOGGER.info("Matched");
                         adapter.saveMapping();
                     } else {
                         switch (this.model.get("sync-import-action")) {
                             case "CREATE_LOCAL":
-                                LOGGER.info("Create local user");
+                                LOGGER.info("Create local resource");
                                 adapter.createEntity();
                                 adapter.saveMapping();
                                 syncRes.increaseAdded();
                                 break;
                             case "DELETE_REMOTE":
-                                LOGGER.info("Delete remote user");
-                                scimService.deleteRequest("Users", spUser.getId()).contentType(contentType)
+                                LOGGER.info("Delete remote resource");
+                                scimService.deleteRequest(adapter.getSCIMEndpoint(), resource.getId())
+                                        .contentType(contentType)
                                         .invoke();
                                 syncRes.increaseRemoved();
                                 break;
                         }
                     }
                 } catch (Exception e) {
+                    LOGGER.error(e);
+                    e.printStackTrace();
                     syncRes.increaseFailed();
                 }
             }
@@ -200,12 +209,13 @@ public class ScimClient {
         }
     }
 
-    public void sync(SynchronizationResult syncRes) {
+    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void sync(Class<A> aClass,
+            SynchronizationResult syncRes) {
         if (this.model.get("sync-import", false)) {
-            this.importUsers(syncRes);
+            this.importResources(aClass, syncRes);
         }
         if (this.model.get("sync-refresh", false)) {
-            this.refreshUsers(syncRes);
+            this.refreshResources(aClass, syncRes);
         }
     }
 

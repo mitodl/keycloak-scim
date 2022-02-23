@@ -3,19 +3,17 @@ package sh.libre.scim.core;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-
-import javax.persistence.EntityManager;
+import java.util.stream.Stream;
 
 import com.unboundid.scim2.common.types.Email;
 import com.unboundid.scim2.common.types.Meta;
 import com.unboundid.scim2.common.types.UserResource;
 
 import org.jboss.logging.Logger;
+import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.jpa.entities.UserEntity;
 import org.keycloak.models.utils.KeycloakModelUtils;
-
-import sh.libre.scim.jpa.ScimResource;
 
 public class UserAdapter extends Adapter<UserModel, UserResource> {
 
@@ -24,8 +22,8 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     private String email;
     private Boolean active;
 
-    public UserAdapter(String realmId, String componentId, EntityManager em) {
-        super(realmId, componentId, em, "User", Logger.getLogger(UserAdapter.class));
+    public UserAdapter(KeycloakSession session, String componentId) {
+        super(session, componentId, "User", Logger.getLogger(UserAdapter.class));
     }
 
     public String getUsername() {
@@ -69,6 +67,11 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     }
 
     @Override
+    public Class<UserResource> getResourceClass() {
+        return UserResource.class;
+    }
+
+    @Override
     public void apply(UserModel user) {
         setId(user.getId());
         setUsername(user.getUsername());
@@ -92,12 +95,6 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         if (user.getEmails().size() > 0) {
             setEmail(user.getEmails().get(0).getValue());
         }
-    }
-
-    @Override
-    public void apply(ScimResource mapping) {
-        setId(mapping.getId());
-        setExternalId(mapping.getExternalId());
     }
 
     @Override
@@ -126,7 +123,8 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         return user;
     }
 
-    public UserEntity createEntity() {
+    @Override
+    public void createEntity() {
         var kcUser = new UserEntity();
         kcUser.setId(KeycloakModelUtils.generateId());
         kcUser.setRealmId(realmId);
@@ -134,9 +132,9 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         kcUser.setEmail(email, false);
         this.em.persist(kcUser);
         this.id = kcUser.getId();
-        return kcUser;
     }
 
+    @Override
     public Boolean entityExists() {
         if (this.id == null) {
             return false;
@@ -148,6 +146,7 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         return false;
     }
 
+    @Override
     public Boolean tryToMap() {
         try {
             var userEntity = this.em
@@ -162,5 +161,15 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         } catch (Exception e) {
         }
         return false;
+    }
+
+    @Override
+    public Stream<UserModel> getResourceStream() {
+        return this.session.users().getUsersStream(this.session.getContext().getRealm());
+    }
+
+    @Override
+    public Boolean skipRefresh() {
+        return getUsername().equals("admin");
     }
 }

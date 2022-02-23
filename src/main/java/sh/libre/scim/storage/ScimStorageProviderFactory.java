@@ -21,7 +21,9 @@ import org.keycloak.storage.UserStorageProviderModel;
 import org.keycloak.storage.user.ImportSynchronization;
 import org.keycloak.storage.user.SynchronizationResult;
 
+import sh.libre.scim.core.GroupAdapter;
 import sh.libre.scim.core.ScimClient;
+import sh.libre.scim.core.UserAdapter;
 
 public class ScimStorageProviderFactory
         implements UserStorageProviderFactory<ScimStorageProvider>, ImportSynchronization {
@@ -110,7 +112,8 @@ public class ScimStorageProviderFactory
                 var client = new ScimClient(model, session);
                 model.setEnabled(false);
                 realm.updateComponent(model);
-                client.sync(result);
+                client.sync(UserAdapter.class, result);
+                client.sync(GroupAdapter.class, result);
                 client.close();
                 model.setEnabled(true);
                 realm.updateComponent(model);
