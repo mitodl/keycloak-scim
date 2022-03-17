@@ -130,6 +130,7 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         kcUser.setRealmId(realmId);
         kcUser.setUsername(username);
         kcUser.setEmail(email, false);
+        kcUser.setEnabled(active);
         this.em.persist(kcUser);
         this.id = kcUser.getId();
     }
