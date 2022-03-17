@@ -2,6 +2,7 @@ package sh.libre.scim.core;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 
 import com.unboundid.scim2.client.ScimService;
@@ -44,6 +45,7 @@ public class ScimClient {
         RetryConfig retryConfig = RetryConfig.custom()
                 .maxAttempts(10)
                 .intervalFunction(IntervalFunction.ofExponentialBackoff())
+                .retryExceptions(ProcessingException.class)
                 .build();
         registry = RetryRegistry.of(retryConfig);
     }
