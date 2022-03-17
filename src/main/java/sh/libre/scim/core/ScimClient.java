@@ -16,6 +16,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RoleMapperModel;
 import org.keycloak.storage.user.SynchronizationResult;
 
+import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
 
