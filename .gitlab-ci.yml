@@ -1,0 +1,10 @@
+package:
+  image:
+    name: maven:3-openjdk-11
+  script:
+    - mvn clean install
+  artifacts:
+    paths:
+      - target/keycloak-scim-1.0-SNAPSHOT.jar
+  only:
+    - main
