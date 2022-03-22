@@ -1,7 +1,6 @@
 package sh.libre.scim.event;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.regex.*;
 
 import org.jboss.logging.Logger;
 import org.keycloak.events.Event;
@@ -13,7 +12,6 @@ import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
-import org.keycloak.representations.idm.GroupRepresentation;
 
 import sh.libre.scim.core.GroupAdapter;
 import sh.libre.scim.core.ScimDispatcher;
@@ -81,12 +79,16 @@ public class ScimEventListenerProvider implements EventListenerProvider {
             }
         }
         if (event.getResourceType() == ResourceType.GROUP_MEMBERSHIP) {
-            ObjectMapper obj = new ObjectMapper();
-            try {
-                var groupRepresentation = obj.readValue(event.getRepresentation(), GroupRepresentation.class);
-                var group = getGroup(groupRepresentation.getId());
+            Pattern pattern = Pattern.compile("users/(.+)/groups/(.+)");
+            Matcher matcher = pattern.matcher(event.getResourcePath());
+            if (matcher.find()) {
+                var userId = matcher.group(1);
+                var groupId = matcher.group(2);
+                LOGGER.infof("%s %s from %s", event.getOperationType(), userId, groupId);
+                var group = getGroup(groupId);
                 dispatcher.run((client) -> client.replace(GroupAdapter.class, group));
-            } catch (JsonProcessingException e) {
+                var user = getUser(userId);
+                dispatcher.run((client) -> client.replace(UserAdapter.class, user));
             }
         }
     }

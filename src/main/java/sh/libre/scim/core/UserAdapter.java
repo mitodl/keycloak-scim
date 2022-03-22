@@ -3,10 +3,13 @@ package sh.libre.scim.core;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.stream.Stream;
 
 import com.unboundid.scim2.common.types.Email;
 import com.unboundid.scim2.common.types.Meta;
+import com.unboundid.scim2.common.types.Role;
 import com.unboundid.scim2.common.types.UserResource;
 
 import org.jboss.logging.Logger;
@@ -21,6 +24,7 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     private String displayName;
     private String email;
     private Boolean active;
+    private String[] roles;
 
     public UserAdapter(KeycloakSession session, String componentId) {
         super(session, componentId, "User", Logger.getLogger(UserAdapter.class));
@@ -66,6 +70,14 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         }
     }
 
+    public String[] getRoles() {
+        return roles;
+    }
+
+    public void setRoles(String[] roles) {
+        this.roles = roles;
+    }
+
     @Override
     public Class<UserResource> getResourceClass() {
         return UserResource.class;
@@ -84,6 +96,15 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         }
         setEmail(user.getEmail());
         setActive(user.isEnabled());
+        var rolesSet = new HashSet<String>();
+        user.getGroupsStream().flatMap(g -> g.getRoleMappingsStream())
+                .filter((r) -> r.getFirstAttribute("scim").equals("true")).map((r) -> r.getName())
+                .forEach(r -> rolesSet.add(r));
+        user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
+                .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+        var roles = new String[rolesSet.size()];
+        rolesSet.toArray(roles);
+        setRoles(roles);
     }
 
     @Override
@@ -120,6 +141,13 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
             }
             user.setMeta(meta);
         }
+        List<Role> roles = new ArrayList<Role>();
+        for (var r : this.roles) {
+            var role = new Role();
+            role.setValue(r);
+            roles.add(role);
+        }
+        user.setRoles(roles);
         return user;
     }
 
