@@ -100,8 +100,12 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         user.getGroupsStream().flatMap(g -> g.getRoleMappingsStream())
                 .filter((r) -> r.getFirstAttribute("scim").equals("true")).map((r) -> r.getName())
                 .forEach(r -> rolesSet.add(r));
-        user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
-                .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+        // Bug when new user.
+        try {
+            user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
+                    .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+        } catch (Exception e) {
+        }
         var roles = new String[rolesSet.size()];
         rolesSet.toArray(roles);
         setRoles(roles);
