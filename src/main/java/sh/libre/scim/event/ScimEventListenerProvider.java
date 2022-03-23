@@ -91,6 +91,24 @@ public class ScimEventListenerProvider implements EventListenerProvider {
                 dispatcher.run((client) -> client.replace(UserAdapter.class, user));
             }
         }
+        if (event.getResourceType() == ResourceType.REALM_ROLE_MAPPING) {
+            Pattern pattern = Pattern.compile("^(.+)/(.+)/role-mappings");
+            Matcher matcher = pattern.matcher(event.getResourcePath());
+            if (matcher.find()) {
+                var type = matcher.group(1);
+                var id = matcher.group(2);
+                LOGGER.infof("%s %s %s roles", event.getOperationType(), type, id);
+                if (type.equals("users")) {
+                    var user = getUser(id);
+                    dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+                } else if (type.equals("groups")) {
+                    var group = getGroup(id);
+                    session.users().getGroupMembersStream(session.getContext().getRealm(), group).forEach(user -> {
+                        dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+                    });
+                }
+            }
+        }
     }
 
     private UserModel getUser(String id) {
