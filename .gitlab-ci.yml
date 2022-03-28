@@ -5,6 +5,6 @@ package:
     - mvn clean install
   artifacts:
     paths:
-      - target/keycloak-scim-1.0-SNAPSHOT.jar
+      - target/keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar
   only:
     - main
