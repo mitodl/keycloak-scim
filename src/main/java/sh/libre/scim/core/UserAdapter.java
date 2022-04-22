@@ -100,26 +100,15 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         user.getGroupsStream().flatMap(g -> g.getRoleMappingsStream())
                 .filter((r) -> r.getFirstAttribute("scim").equals("true")).map((r) -> r.getName())
                 .forEach(r -> rolesSet.add(r));
-        // Bug when new user.
-        try {
-            var roleStream = user.getRoleMappingsStream();
-            if (rolesSet == null) {
-                LOGGER.error("role stream is null");
-            }
-            roleStream.filter((r) -> {
-                var attr = r.getFirstAttribute("scim");
-                if (attr == null) {
-                    LOGGER.debug("attribute is null");
-                    return false;
-                }
-                return attr.equals("true");
-            }).map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
 
-            // user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
-            //         .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
-        } catch (Exception e) {
-            LOGGER.error(e);
-        }
+        user.getRoleMappingsStream().filter((r) -> {
+            var attr = r.getFirstAttribute("scim");
+            if (attr == null) {
+                return false;
+            }
+            return attr.equals("true");
+        }).map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+
         var roles = new String[rolesSet.size()];
         rolesSet.toArray(roles);
         setRoles(roles);
