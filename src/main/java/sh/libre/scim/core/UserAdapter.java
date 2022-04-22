@@ -102,8 +102,21 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
                 .forEach(r -> rolesSet.add(r));
         // Bug when new user.
         try {
-            user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
-                    .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+            var roleStream = user.getRoleMappingsStream();
+            if (rolesSet == null) {
+                LOGGER.error("role stream is null");
+            }
+            roleStream.filter((r) -> {
+                var attr = r.getFirstAttribute("scim");
+                if (attr == null) {
+                    LOGGER.debug("attribute is null");
+                    return false;
+                }
+                return attr.equals("true");
+            }).map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+
+            // user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
+            //         .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
         } catch (Exception e) {
             LOGGER.error(e);
         }
