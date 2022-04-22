@@ -105,6 +105,7 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
             user.getRoleMappingsStream().filter((r) -> r.getFirstAttribute("scim").equals("true"))
                     .map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
         } catch (Exception e) {
+            LOGGER.error(e);
         }
         var roles = new String[rolesSet.size()];
         rolesSet.toArray(roles);
