@@ -110,13 +110,9 @@ public class ScimStorageProviderFactory
                 RealmModel realm = session.realms().getRealm(realmId);
                 session.getContext().setRealm(realm);
                 var client = new ScimClient(model, session);
-                model.setEnabled(false);
-                realm.updateComponent(model);
                 client.sync(UserAdapter.class, result);
                 client.sync(GroupAdapter.class, result);
                 client.close();
-                model.setEnabled(true);
-                realm.updateComponent(model);
             }
 
         });

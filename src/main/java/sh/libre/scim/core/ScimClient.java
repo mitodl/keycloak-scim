@@ -72,6 +72,10 @@ public class ScimClient {
             M kcModel) {
         var adapter = getAdapter(aClass);
         adapter.apply(kcModel);
+        // If mapping exist then it was created by import so skip.
+        if (adapter.query("findById", adapter.getId()).getSingleResult() != null) {
+            return;
+        }
         var retry = registry.retry("create-" + adapter.getId());
         var resource = retry.executeSupplier(() -> {
             try {
