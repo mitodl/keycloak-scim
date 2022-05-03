@@ -52,24 +52,32 @@ public class ScimStorageProviderFactory
                 .type(ProviderConfigProperty.LIST_TYPE)
                 .label("Auth mode")
                 .helpText("Select the authorization mode")
-                .options("NONE", "BEARER", "BASIC_AUTH")
+                .options("NONE", "BASIC_AUTH", "BEARER")
                 .defaultValue("NONE")
                 .add()
                 .property()
-                .name("auth-bearer-token")
-                .type(ProviderConfigProperty.PASSWORD)
-                .label("Bearer token")
-                .helpText("Add a bearer token in the authorization header")
-                .add()
-                .property()
-                .name("auth-basic-auth-user")
+                .name("auth-user")
                 .type(ProviderConfigProperty.STRING_TYPE)
-                .label("BasicAuth user")
+                .label("Auth username")
+                .helpText("Required for basic authentification.")
                 .add()
                 .property()
-                .name("auth-basic-auth-pass")
+                .name("auth-pass")
                 .type(ProviderConfigProperty.PASSWORD)
-                .label("BasicAuth password")
+                .label("Auth password/token")
+                .helpText("Password or token required for basic or bearer authentification.")
+                .add()
+                .property()
+                .name("propagation-user")
+                .type(ProviderConfigProperty.BOOLEAN_TYPE)
+                .label("Enable user propagation")
+                .defaultValue("true")
+                .add()
+                .property()
+                .name("propagation-group")
+                .type(ProviderConfigProperty.BOOLEAN_TYPE)
+                .label("Enable group propagation")
+                .defaultValue("true")
                 .add()
                 .property()
                 .name("sync-import")
@@ -120,8 +128,12 @@ public class ScimStorageProviderFactory
                 RealmModel realm = session.realms().getRealm(realmId);
                 session.getContext().setRealm(realm);
                 var client = new ScimClient(model, session);
-                client.sync(UserAdapter.class, result);
-                client.sync(GroupAdapter.class, result);
+                if (model.get("propagation-user").equals("true")) {
+                    client.sync(UserAdapter.class, result);
+                }
+                if (model.get("propagation-group").equals("true")) {
+                    client.sync(GroupAdapter.class, result);
+                }
                 client.close();
             }
 

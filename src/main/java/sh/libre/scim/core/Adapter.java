@@ -10,7 +10,6 @@ import org.jboss.logging.Logger;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RoleMapperModel;
-
 import sh.libre.scim.jpa.ScimResource;
 
 public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid.scim2.common.ScimResource> {
@@ -124,7 +123,7 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
     public abstract Boolean tryToMap();
 
     public abstract void createEntity();
-    
+
     public abstract Stream<M> getResourceStream();
 
     public abstract Boolean skipRefresh();

@@ -35,14 +35,14 @@ public class ScimEventListenerProvider implements EventListenerProvider {
     public void onEvent(Event event) {
         if (event.getType() == EventType.REGISTER) {
             var user = getUser(event.getUserId());
-            dispatcher.run((client) -> client.create(UserAdapter.class, user));
+            dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.create(UserAdapter.class, user));
         }
         if (event.getType() == EventType.UPDATE_EMAIL || event.getType() == EventType.UPDATE_PROFILE) {
             var user = getUser(event.getUserId());
-            dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+            dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
         }
         if (event.getType() == EventType.DELETE_ACCOUNT) {
-            dispatcher.run((client) -> client.delete(UserAdapter.class, event.getUserId()));
+            dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.delete(UserAdapter.class, event.getUserId()));
         }
     }
 
@@ -53,14 +53,14 @@ public class ScimEventListenerProvider implements EventListenerProvider {
             LOGGER.infof("%s %s", userId, event.getOperationType());
             if (event.getOperationType() == OperationType.CREATE) {
                 var user = getUser(userId);
-                dispatcher.run((client) -> client.create(UserAdapter.class, user));
+                dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.create(UserAdapter.class, user));
             }
             if (event.getOperationType() == OperationType.UPDATE) {
                 var user = getUser(userId);
-                dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+                dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
             }
             if (event.getOperationType() == OperationType.DELETE) {
-                dispatcher.run((client) -> client.delete(UserAdapter.class, userId));
+                dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.delete(UserAdapter.class, userId));
             }
         }
         if (event.getResourceType() == ResourceType.GROUP) {
@@ -68,14 +68,14 @@ public class ScimEventListenerProvider implements EventListenerProvider {
             LOGGER.infof("%s %s", event.getResourcePath(), event.getOperationType());
             if (event.getOperationType() == OperationType.CREATE) {
                 var group = getGroup(groupId);
-                dispatcher.run((client) -> client.create(GroupAdapter.class, group));
+                dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.create(GroupAdapter.class, group));
             }
             if (event.getOperationType() == OperationType.UPDATE) {
                 var group = getGroup(groupId);
-                dispatcher.run((client) -> client.replace(GroupAdapter.class, group));
+                dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.replace(GroupAdapter.class, group));
             }
             if (event.getOperationType() == OperationType.DELETE) {
-                dispatcher.run((client) -> client.delete(GroupAdapter.class, groupId));
+                dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.delete(GroupAdapter.class, groupId));
             }
         }
         if (event.getResourceType() == ResourceType.GROUP_MEMBERSHIP) {
@@ -86,9 +86,9 @@ public class ScimEventListenerProvider implements EventListenerProvider {
                 var groupId = matcher.group(2);
                 LOGGER.infof("%s %s from %s", event.getOperationType(), userId, groupId);
                 var group = getGroup(groupId);
-                dispatcher.run((client) -> client.replace(GroupAdapter.class, group));
+                dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.replace(GroupAdapter.class, group));
                 var user = getUser(userId);
-                dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+                dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
             }
         }
         if (event.getResourceType() == ResourceType.REALM_ROLE_MAPPING) {
@@ -100,11 +100,11 @@ public class ScimEventListenerProvider implements EventListenerProvider {
                 LOGGER.infof("%s %s %s roles", event.getOperationType(), type, id);
                 if (type.equals("users")) {
                     var user = getUser(id);
-                    dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+                    dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
                 } else if (type.equals("groups")) {
                     var group = getGroup(id);
                     session.users().getGroupMembersStream(session.getContext().getRealm(), group).forEach(user -> {
-                        dispatcher.run((client) -> client.replace(UserAdapter.class, user));
+                        dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
                     });
                 }
             }

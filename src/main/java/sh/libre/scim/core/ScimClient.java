@@ -38,12 +38,12 @@ public class ScimClient {
         var target = client.target(model.get("endpoint"));
         switch (model.get("auth-mode")) {
             case "BEARER":
-                target = target.register(new BearerAuthentication(model.get("auth-bearer-token")));
+                target = target.register(new BearerAuthentication(model.get("auth-pass")));
                 break;
             case "BASIC_AUTH":
                 target = target.register(new BasicAuthentication(
-                        model.get("auth-basic-auth-user"),
-                        model.get("auth-basic-auth-pass")));
+                        model.get("auth-user"),
+                        model.get("auth-pass")));
         }
 
         scimService = new ScimService(target);

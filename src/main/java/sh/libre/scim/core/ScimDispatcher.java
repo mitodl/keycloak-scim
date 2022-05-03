@@ -7,6 +7,9 @@ import org.keycloak.models.KeycloakSession;
 import sh.libre.scim.storage.ScimStorageProviderFactory;
 
 public class ScimDispatcher {
+    public static final String SCOPE_USER = "user"; 
+    public static final String SCOPE_GROUP = "group"; 
+
     final private KeycloakSession session;
     final private Logger LOGGER = Logger.getLogger(ScimDispatcher.class);
 
@@ -14,10 +17,10 @@ public class ScimDispatcher {
         this.session = session;
     }
 
-    public void run(Consumer<ScimClient> f) {
+    public void run(String scope, Consumer<ScimClient> f) {
         session.getContext().getRealm().getComponentsStream()
                 .filter((m) -> {
-                    return ScimStorageProviderFactory.ID.equals(m.getProviderId()) && m.get("enabled").equals("true");
+                    return ScimStorageProviderFactory.ID.equals(m.getProviderId()) && m.get("enabled").equals("true") &&  m.get("propagation-"+scope).equals("true");
                 })
                 .forEach(m -> {
                     LOGGER.infof("%s %s %s %s", m.getId(), m.getName(), m.getProviderId(), m.getProviderType());
