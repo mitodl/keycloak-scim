@@ -65,8 +65,8 @@ COPY keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar /opt/jboss/keycloak/st
 
 ### Configuration
 
-Add the endpoint - for a local set up you have to add the two containers in a docker network and use the container ip see (here)[https://docs.docker.com/engine/reference/commandline/network/]
-If you use the (rocketchat app)[https://lab.libreho.st/libre.sh/scim/rocketchat-scim] you get the endpoint from your rocket Chat Scim Adapter App Details.
+Add the endpoint - for a local set up you have to add the two containers in a docker network and use the container ip see [here](https://docs.docker.com/engine/reference/commandline/network/)
+If you use the [rocketchat app](https://lab.libreho.st/libre.sh/scim/rocketchat-scim) you get the endpoint from your rocket Chat Scim Adapter App Details.
 Endpoint content type is application/json.
 Auth mode Bearer or None for local test setup.
 Copy the bearer token from your app details in rocketchat.
