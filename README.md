@@ -34,6 +34,15 @@ Because the event listener is the source of the SCIM flow, and it is not cancela
 1. Download the [latest version](https://lab.libreho.st/libre.sh/scim/keycloak-scim/-/jobs/artifacts/main/raw/target/keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar?job=package)
 2. Put it in `/opt/jboss/keycloak/standalone/deployments/`.
 
+It's also possible to build your own custom image if you run keycloak in a container.
+
+Example:
+```
+FROM jboss/keycloak:16.1.1
+
+COPY keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar /opt/jboss/keycloak/standalone/deployments/keycloak-scim-1.0-SNAPSHOT.jar
+```
+
 ### Setup
 
 #### Add the event listerner
@@ -56,11 +65,25 @@ Because the event listener is the source of the SCIM flow, and it is not cancela
 
 ### Configuration
 
-TODO
+Add the endpoint - for a local set up you have to add the two containers in a docker network and use the container ip see (here)[https://docs.docker.com/engine/reference/commandline/network/]
+If you use the (rocketchat app)[https://lab.libreho.st/libre.sh/scim/rocketchat-scim] you get the endpoint from your rocket Chat Scim Adapter App Details.
+Endpoint content type is application/json.
+Auth mode Bearer or None for local test setup.
+Copy the bearer token from your app details in rocketchat.
+
+If you enable import during sync then you can choose between to following import actions:
+- Create Local - adds users to keycloak
+- Nothing
+- Delete Remote - deletes users from the remote application
+
+
+
 
 ### Sync
 
-TODO
+You can set up a periodic sync for all users or just changed users - it's not necesarry. You can either do:
+- Periodic Full Sync
+- Periodic Changed User Sync
 
 
 **[License AGPL](/LICENSE)**
