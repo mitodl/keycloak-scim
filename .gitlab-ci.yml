@@ -1,10 +1,11 @@
 package:
   image:
-    name: maven:3-openjdk-11
+    name: gradle:jdk11
   script:
-    - mvn clean install
+    - gradle jar shadowjar
   artifacts:
     paths:
-      - target/keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar
+      - build/libs/keycloak-scim-1.0-SNAPSHOT.jar
+      - build/libs/keycloak-scim-1.0-SNAPSHOT-all.jar
   only:
     - main

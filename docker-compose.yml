@@ -11,19 +11,18 @@ services:
     ports:
       - 5432:5432
   keycloak:
-    image: quay.io/keycloak/keycloak:16.1.1
+    image: quay.io/keycloak/keycloak:18.0.0
+    build: .
+    command: start-dev
     volumes:
-      - ./target/keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar:/opt/jboss/keycloak/standalone/deployments/keycloak-scim-1.0-SNAPSHOT.jar
+      - ./build/libs/keycloak-scim-1.0-SNAPSHOT-all.jar:/opt/keycloak/providers/keycloak-scim-1.0-SNAPSHOT-all.jar
     environment:
-      DB_VENDOR: POSTGRES
-      DB_ADDR: postgres
-      DB_DATABASE: keycloak
-      DB_USER: keycloak
-      DB_SCHEMA: public
-      DB_PASSWORD: keycloak
-      KEYCLOAK_USER: admin
-      KEYCLOAK_PASSWORD: admin
-      KEYCLOAK_LOGLEVEL: DEBUG
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
       - 127.0.0.1:8080:8080
     depends_on:
