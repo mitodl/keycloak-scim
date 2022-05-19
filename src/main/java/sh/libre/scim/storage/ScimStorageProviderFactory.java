@@ -12,7 +12,6 @@ import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.KeycloakSessionTask;
-import org.keycloak.models.RealmModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
@@ -22,7 +21,7 @@ import org.keycloak.storage.user.ImportSynchronization;
 import org.keycloak.storage.user.SynchronizationResult;
 
 import sh.libre.scim.core.GroupAdapter;
-import sh.libre.scim.core.ScimClient;
+import sh.libre.scim.core.ScimDispatcher;
 import sh.libre.scim.core.UserAdapter;
 
 public class ScimStorageProviderFactory
@@ -125,16 +124,13 @@ public class ScimStorageProviderFactory
 
             @Override
             public void run(KeycloakSession session) {
-                RealmModel realm = session.realms().getRealm(realmId);
-                session.getContext().setRealm(realm);
-                var client = new ScimClient(model, session);
+                var dispatcher = new ScimDispatcher(session);
                 if (model.get("propagation-user").equals("true")) {
-                    client.sync(UserAdapter.class, result);
+                    dispatcher.runOne(model, (client) -> client.sync(UserAdapter.class, result));
                 }
                 if (model.get("propagation-group").equals("true")) {
-                    client.sync(GroupAdapter.class, result);
+                    dispatcher.runOne(model, (client) -> client.sync(GroupAdapter.class, result));
                 }
-                client.close();
             }
 
         });
