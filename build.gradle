@@ -20,7 +20,7 @@ dependencies {
     compileOnly 'org.keycloak:keycloak-server-spi-private:18.0.0'
     compileOnly 'org.keycloak:keycloak-services:18.0.0'
     compileOnly 'org.keycloak:keycloak-model-jpa:18.0.0'
-    implementation 'io.github.resilience4j:resilience4j-retry:1.7.0'
+    implementation 'io.github.resilience4j:resilience4j-retry:1.7.1'
     implementation('com.unboundid.product.scim2:scim2-sdk-client:2.3.7') {
         transitive false
     }

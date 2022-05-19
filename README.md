@@ -27,21 +27,14 @@ Because the event listener is the source of the SCIM flow, and it is not cancela
 
 ## Usage
 
-### Installation
+### Installation (quick)
 
-> For now, it's doesn't't work on Quarkus which is the default after version 16.x.x. 
+1. Download the [latest version](https://lab.libreho.st/libre.sh/scim/keycloak-scim/-/jobs/artifacts/main/raw/build/libs/keycloak-scim-1.0-SNAPSHOT-all.jar?job=package)
+2. Put it in `/opt/keycloak/providers/`.
 
-1. Download the [latest version](https://lab.libreho.st/libre.sh/scim/keycloak-scim/-/jobs/artifacts/main/raw/target/keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar?job=package)
-2. Put it in `/opt/jboss/keycloak/standalone/deployments/`.
+It's also possible to build your own custom image if you run Keycloak in a [container](/docs/container.md).
 
-It's also possible to build your own custom image if you run keycloak in a container.
-
-Example:
-```
-FROM jboss/keycloak:16.1.1
-
-COPY keycloak-scim-1.0-SNAPSHOT-jar-with-dependencies.jar /opt/jboss/keycloak/standalone/deployments/keycloak-scim-1.0-SNAPSHOT.jar
-```
+Other [installation options](/docs/installation.md) are available.
 
 ### Setup
 
