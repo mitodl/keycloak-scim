@@ -124,6 +124,8 @@ public class ScimStorageProviderFactory
 
             @Override
             public void run(KeycloakSession session) {
+                var realm = session.realms().getRealm(realmId);
+                session.getContext().setRealm(realm);
                 var dispatcher = new ScimDispatcher(session);
                 if (model.get("propagation-user").equals("true")) {
                     dispatcher.runOne(model, (client) -> client.sync(UserAdapter.class, result));
