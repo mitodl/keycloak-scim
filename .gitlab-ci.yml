@@ -3,9 +3,11 @@ package:
     name: gradle:jdk11
   script:
     - gradle jar shadowjar
+    - gradle -b legacy-build.gradle shadowjar
   artifacts:
     paths:
       - build/libs/keycloak-scim-1.0-SNAPSHOT.jar
       - build/libs/keycloak-scim-1.0-SNAPSHOT-all.jar
+      - build/libs/keycloak-scim-1.0-SNAPSHOT-all-legacy.jar
   only:
     - main
