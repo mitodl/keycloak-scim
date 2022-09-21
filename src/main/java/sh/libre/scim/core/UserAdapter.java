@@ -15,8 +15,6 @@ import com.unboundid.scim2.common.types.UserResource;
 import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
-import org.keycloak.models.jpa.entities.UserEntity;
-import org.keycloak.models.utils.KeycloakModelUtils;
 
 public class UserAdapter extends Adapter<UserModel, UserResource> {
 
@@ -160,14 +158,10 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
 
     @Override
     public void createEntity() {
-        var kcUser = new UserEntity();
-        kcUser.setId(KeycloakModelUtils.generateId());
-        kcUser.setRealmId(realmId);
-        kcUser.setUsername(username);
-        kcUser.setEmail(email, false);
-        kcUser.setEnabled(active);
-        this.em.persist(kcUser);
-        this.id = kcUser.getId();
+        var user = session.users().addUser(realm, username);
+        user.setEmail(email);
+        user.setEnabled(active);
+        this.id = user.getId();
     }
 
     @Override
@@ -175,7 +169,7 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         if (this.id == null) {
             return false;
         }
-        var user = this.em.find(UserEntity.class, this.id);
+        var user = session.users().getUserById(realm, id);
         if (user != null) {
             return true;
         }
@@ -184,17 +178,19 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
 
     @Override
     public Boolean tryToMap() {
-        try {
-            var userEntity = this.em
-                    .createQuery("select u from UserEntity u where u.username=:username or u.email=:email",
-                            UserEntity.class)
-                    .setParameter("username", username)
-                    .setParameter("email", email)
-                    .getSingleResult();
-
-            setId(userEntity.getId());
+        var sameUsernameUser = session.users().getUserByUsername(realm, username);
+        var sameEmailUser = session.users().getUserByEmail(realm, email);
+        if ((sameUsernameUser != null && sameEmailUser != null) && sameUsernameUser.getId() != sameEmailUser.getId()) {
+            LOGGER.warnf("found 2 possible users for remote user %s %s", username, email);
+            return false;
+        }
+        if (sameUsernameUser != null) {
+            this.id = sameUsernameUser.getId();
             return true;
-        } catch (Exception e) {
+        }
+        if (sameEmailUser != null) {
+            this.id = sameEmailUser.getId();
+            return true;
         }
         return false;
     }

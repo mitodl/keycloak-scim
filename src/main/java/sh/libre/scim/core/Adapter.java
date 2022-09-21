@@ -9,6 +9,7 @@ import javax.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleMapperModel;
 import sh.libre.scim.jpa.ScimResource;
 
@@ -16,6 +17,7 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
 
     protected final Logger LOGGER;
     protected final String realmId;
+    protected final RealmModel realm;
     protected final String type;
     protected final String componentId;
     protected final EntityManager em;
@@ -26,6 +28,7 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
 
     public Adapter(KeycloakSession session, String componentId, String type, Logger logger) {
         this.session = session;
+        this.realm = session.getContext().getRealm();
         this.realmId = session.getContext().getRealm().getId();
         this.componentId = componentId;
         this.em = session.getProvider(JpaConnectionProvider.class).getEntityManager();

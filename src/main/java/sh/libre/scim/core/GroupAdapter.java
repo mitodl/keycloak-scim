@@ -19,10 +19,6 @@ import com.unboundid.scim2.common.types.Meta;
 import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.jpa.entities.GroupEntity;
-import org.keycloak.models.jpa.entities.UserEntity;
-import org.keycloak.models.jpa.entities.UserGroupMembershipEntity;
-import org.keycloak.models.utils.KeycloakModelUtils;
 
 public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
 
@@ -124,7 +120,7 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
         if (this.id == null) {
             return false;
         }
-        var group = this.em.find(GroupEntity.class, this.id);
+        var group = session.groups().getGroupById(realm, id);
         if (group != null) {
             return true;
         }
@@ -133,38 +129,25 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
 
     @Override
     public Boolean tryToMap() {
-        try {
-            var groupEntity = this.em
-                    .createQuery("select g from GroupEntity g where g.name=:name",
-                            GroupEntity.class)
-                    .setParameter("name", displayName)
-                    .getSingleResult();
-            setId(groupEntity.getId());
+        var group = session.groups().getGroupsStream(realm).filter(x -> x.getName() == displayName).findFirst();
+        if (group.isPresent()) {
+            setId(group.get().getId());
             return true;
-        } catch (Exception e) {
         }
         return false;
     }
 
     @Override
     public void createEntity() {
-        var kcGroup = new GroupEntity();
-        kcGroup.setId(KeycloakModelUtils.generateId());
-        kcGroup.setRealm(realmId);
-        kcGroup.setName(displayName);
-        kcGroup.setParentId(GroupEntity.TOP_PARENT_ID);
-        this.em.persist(kcGroup);
-        this.id = kcGroup.getId();
+        var group = session.groups().createGroup(realm, displayName);
+        this.id = group.getId();
         for (String mId : members) {
             try {
-                var user = this.em.find(UserEntity.class, mId);
+                var user = session.users().getUserById(realm, mId);
                 if (user == null) {
                     throw new NoResultException();
                 }
-                var membership = new UserGroupMembershipEntity();
-                membership.setUser(user);
-                membership.setGroupId(kcGroup.getId());
-                this.em.persist(membership);
+                user.joinGroup(group);
             } catch (Exception e) {
                 LOGGER.warn(e);
             }
