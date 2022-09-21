@@ -21,8 +21,8 @@ public class ScimDispatcher {
     public void run(String scope, Consumer<ScimClient> f) {
         session.getContext().getRealm().getComponentsStream()
                 .filter((m) -> {
-                    return ScimStorageProviderFactory.ID.equals(m.getProviderId()) && m.get("enabled").equals("true")
-                            && m.get("propagation-" + scope).equals("true");
+                    return ScimStorageProviderFactory.ID.equals(m.getProviderId()) && m.get("enabled", true)
+                            && m.get("propagation-" + scope, false);
                 })
                 .forEach(m -> runOne(m, f));
     }
