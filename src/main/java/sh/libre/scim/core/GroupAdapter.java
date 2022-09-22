@@ -10,8 +10,6 @@ import java.util.stream.Stream;
 
 import javax.persistence.NoResultException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.unboundid.scim2.common.types.GroupResource;
 import com.unboundid.scim2.common.types.Member;
 import com.unboundid.scim2.common.types.Meta;
@@ -52,12 +50,6 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
                 .getGroupMembersStream(session.getContext().getRealm(), group)
                 .map(x -> x.getId())
                 .collect(Collectors.toSet());
-        ObjectMapper Obj = new ObjectMapper();
-        try {
-            String jsonStr = Obj.writerWithDefaultPrettyPrinter().writeValueAsString(this.members);
-            LOGGER.info(jsonStr);
-        } catch (JsonProcessingException e) {
-        }
     }
 
     @Override
@@ -105,12 +97,6 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
             } catch (URISyntaxException e) {
             }
             group.setMeta(meta);
-        }
-        ObjectMapper Obj = new ObjectMapper();
-        try {
-            String jsonStr = Obj.writerWithDefaultPrettyPrinter().writeValueAsString(group);
-            LOGGER.info(jsonStr);
-        } catch (JsonProcessingException e) {
         }
         return group;
     }
