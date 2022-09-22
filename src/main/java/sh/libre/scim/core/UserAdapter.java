@@ -12,6 +12,7 @@ import com.unboundid.scim2.common.types.Meta;
 import com.unboundid.scim2.common.types.Role;
 import com.unboundid.scim2.common.types.UserResource;
 
+import org.apache.commons.lang.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
@@ -85,13 +86,12 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     public void apply(UserModel user) {
         setId(user.getId());
         setUsername(user.getUsername());
-        if (user.getFirstName() != null && user.getLastName() != null) {
-            setDisplayName(String.format("%s %s", user.getFirstName(), user.getLastName()));
-        } else if (user.getFirstName() != null) {
-            setDisplayName(user.getFirstName());
-        } else if (user.getLastName() != null) {
-            setDisplayName(user.getLastName());
+        var displayName = String.format("%s %s", StringUtils.defaultString(user.getFirstName()),
+                StringUtils.defaultString(user.getLastName())).trim();
+        if (StringUtils.isEmpty(displayName)) {
+            displayName = user.getUsername();
         }
+        setDisplayName(displayName);
         setEmail(user.getEmail());
         setActive(user.isEnabled());
         var rolesSet = new HashSet<String>();
