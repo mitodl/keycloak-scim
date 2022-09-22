@@ -1,5 +1,6 @@
 package sh.libre.scim.event;
 
+import java.util.HashMap;
 import java.util.regex.*;
 
 import org.jboss.logging.Logger;
@@ -21,10 +22,15 @@ public class ScimEventListenerProvider implements EventListenerProvider {
     final Logger LOGGER = Logger.getLogger(ScimEventListenerProvider.class);
     ScimDispatcher dispatcher;
     KeycloakSession session;
+    HashMap<ResourceType, Pattern> patterns = new HashMap<ResourceType, Pattern>();
 
     public ScimEventListenerProvider(KeycloakSession session) {
         this.session = session;
         dispatcher = new ScimDispatcher(session);
+        patterns.put(ResourceType.USER, Pattern.compile("users/(.+)"));
+        patterns.put(ResourceType.GROUP, Pattern.compile("groups/([\\w-]+)(/children)?"));
+        patterns.put(ResourceType.GROUP_MEMBERSHIP, Pattern.compile("users/(.+)/groups/(.+)"));
+        patterns.put(ResourceType.REALM_ROLE_MAPPING, Pattern.compile("^(.+)/(.+)/role-mappings"));
     }
 
     @Override
@@ -48,8 +54,14 @@ public class ScimEventListenerProvider implements EventListenerProvider {
 
     @Override
     public void onEvent(AdminEvent event, boolean includeRepresentation) {
+        var pattern = patterns.get(event.getResourceType());
+        if (pattern == null)
+            return;
+        var matcher = pattern.matcher(event.getResourcePath());
+        if (!matcher.find())
+            return;
         if (event.getResourceType() == ResourceType.USER) {
-            var userId = event.getResourcePath().replace("users/", "");
+            var userId = matcher.group(1);
             LOGGER.infof("%s %s", userId, event.getOperationType());
             if (event.getOperationType() == OperationType.CREATE) {
                 var user = getUser(userId);
@@ -67,8 +79,8 @@ public class ScimEventListenerProvider implements EventListenerProvider {
             }
         }
         if (event.getResourceType() == ResourceType.GROUP) {
-            var groupId = event.getResourcePath().replace("groups/", "");
-            LOGGER.infof("%s %s", event.getResourcePath(), event.getOperationType());
+            var groupId = matcher.group(1);
+            LOGGER.infof("group %s %s", groupId, event.getOperationType());
             if (event.getOperationType() == OperationType.CREATE) {
                 var group = getGroup(groupId);
                 dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.create(GroupAdapter.class, group));
@@ -78,38 +90,31 @@ public class ScimEventListenerProvider implements EventListenerProvider {
                 dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.replace(GroupAdapter.class, group));
             }
             if (event.getOperationType() == OperationType.DELETE) {
-                dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.delete(GroupAdapter.class, groupId));
+                dispatcher.run(ScimDispatcher.SCOPE_GROUP,
+                        (client) -> client.delete(GroupAdapter.class, groupId));
             }
         }
         if (event.getResourceType() == ResourceType.GROUP_MEMBERSHIP) {
-            Pattern pattern = Pattern.compile("users/(.+)/groups/(.+)");
-            Matcher matcher = pattern.matcher(event.getResourcePath());
-            if (matcher.find()) {
-                var userId = matcher.group(1);
-                var groupId = matcher.group(2);
-                LOGGER.infof("%s %s from %s", event.getOperationType(), userId, groupId);
-                var group = getGroup(groupId);
-                dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.replace(GroupAdapter.class, group));
-                var user = getUser(userId);
-                dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
-            }
+            var userId = matcher.group(1);
+            var groupId = matcher.group(2);
+            LOGGER.infof("%s %s from %s", event.getOperationType(), userId, groupId);
+            var group = getGroup(groupId);
+            dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.replace(GroupAdapter.class, group));
+            var user = getUser(userId);
+            dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
         }
         if (event.getResourceType() == ResourceType.REALM_ROLE_MAPPING) {
-            Pattern pattern = Pattern.compile("^(.+)/(.+)/role-mappings");
-            Matcher matcher = pattern.matcher(event.getResourcePath());
-            if (matcher.find()) {
-                var type = matcher.group(1);
-                var id = matcher.group(2);
-                LOGGER.infof("%s %s %s roles", event.getOperationType(), type, id);
-                if (type.equals("users")) {
-                    var user = getUser(id);
+            var type = matcher.group(1);
+            var id = matcher.group(2);
+            LOGGER.infof("%s %s %s roles", event.getOperationType(), type, id);
+            if (type.equals("users")) {
+                var user = getUser(id);
+                dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
+            } else if (type.equals("groups")) {
+                var group = getGroup(id);
+                session.users().getGroupMembersStream(session.getContext().getRealm(), group).forEach(user -> {
                     dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
-                } else if (type.equals("groups")) {
-                    var group = getGroup(id);
-                    session.users().getGroupMembersStream(session.getContext().getRealm(), group).forEach(user -> {
-                        dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.replace(UserAdapter.class, user));
-                    });
-                }
+                });
             }
         }
     }
