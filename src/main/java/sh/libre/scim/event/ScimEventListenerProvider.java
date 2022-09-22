@@ -54,6 +54,9 @@ public class ScimEventListenerProvider implements EventListenerProvider {
             if (event.getOperationType() == OperationType.CREATE) {
                 var user = getUser(userId);
                 dispatcher.run(ScimDispatcher.SCOPE_USER, (client) -> client.create(UserAdapter.class, user));
+                user.getGroupsStream().forEach(group -> {
+                    dispatcher.run(ScimDispatcher.SCOPE_GROUP, (client) -> client.replace(GroupAdapter.class, group));
+                });
             }
             if (event.getOperationType() == OperationType.UPDATE) {
                 var user = getUser(userId);
