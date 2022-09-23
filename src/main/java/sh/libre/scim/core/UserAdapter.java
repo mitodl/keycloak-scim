@@ -110,6 +110,7 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
         var roles = new String[rolesSet.size()];
         rolesSet.toArray(roles);
         setRoles(roles);
+        this.skip = StringUtils.equals(user.getFirstAttribute("scim-skip"), "true");
     }
 
     @Override

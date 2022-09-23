@@ -14,6 +14,7 @@ import com.unboundid.scim2.common.types.GroupResource;
 import com.unboundid.scim2.common.types.Member;
 import com.unboundid.scim2.common.types.Meta;
 
+import org.apache.commons.lang.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
@@ -50,6 +51,7 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
                 .getGroupMembersStream(session.getContext().getRealm(), group)
                 .map(x -> x.getId())
                 .collect(Collectors.toSet());
+        this.skip = StringUtils.equals(group.getFirstAttribute("scim-skip"), "true");
     }
 
     @Override

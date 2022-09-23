@@ -25,6 +25,7 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
 
     protected String id;
     protected String externalId;
+    protected Boolean skip = false;
 
     public Adapter(KeycloakSession session, String componentId, String type, Logger logger) {
         this.session = session;
