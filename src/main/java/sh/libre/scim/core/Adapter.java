@@ -3,6 +3,7 @@ package sh.libre.scim.core;
 import java.util.stream.Stream;
 
 import javax.persistence.EntityManager;
+import javax.persistence.NoResultException;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.NotFoundException;
 
@@ -93,6 +94,7 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
                 return this.query("findByExternalId", externalId).getSingleResult();
             }
         } catch (NotFoundException e) {
+        } catch (NoResultException e) {
         } catch (Exception e) {
             LOGGER.error(e);
         }
