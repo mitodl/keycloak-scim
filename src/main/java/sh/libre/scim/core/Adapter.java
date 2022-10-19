@@ -128,7 +128,7 @@ public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid
 
     public abstract Boolean tryToMap();
 
-    public abstract void createEntity();
+    public abstract void createEntity() throws Exception;
 
     public abstract Stream<M> getResourceStream();
 

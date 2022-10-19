@@ -158,7 +158,10 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     }
 
     @Override
-    public void createEntity() {
+    public void createEntity() throws Exception {
+        if (StringUtils.isEmpty(username)) {
+            throw new Exception("can't create user with empty username");
+        }
         var user = session.users().addUser(realm, username);
         user.setEmail(email);
         user.setEnabled(active);
