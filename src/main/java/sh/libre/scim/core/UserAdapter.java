@@ -182,9 +182,16 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
 
     @Override
     public Boolean tryToMap() {
-        var sameUsernameUser = session.users().getUserByUsername(realm, username);
-        var sameEmailUser = session.users().getUserByEmail(realm, email);
-        if ((sameUsernameUser != null && sameEmailUser != null) && sameUsernameUser.getId() != sameEmailUser.getId()) {
+        UserModel sameUsernameUser = null;
+        UserModel sameEmailUser = null;
+        if (username != null) {
+            sameUsernameUser = session.users().getUserByUsername(realm, username);
+        }
+        if (email != null) {
+            sameEmailUser = session.users().getUserByEmail(realm, email);
+        }
+        if ((sameUsernameUser != null && sameEmailUser != null)
+                && (sameUsernameUser.getId() != sameEmailUser.getId())) {
             LOGGER.warnf("found 2 possible users for remote user %s %s", username, email);
             return false;
         }
