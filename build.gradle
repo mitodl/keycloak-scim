@@ -22,8 +22,9 @@ dependencies {
     compileOnly 'org.keycloak:keycloak-model-jpa:18.0.0'
     implementation 'io.github.resilience4j:resilience4j-retry:1.7.1'
     implementation 'de.captaingoldfish:scim-sdk-common:1.15.3'
-
-    implementation files('/home/marcportabella/Documents/totmicro/Repos/keycloak-scim-aws/scim-sdk-client-1.15.4-SNAPSHOT.jar')
+    // User latest build of scim-sdk-client as it adds needed features
+    // This will be reverted to public repo once 1.15.4 version is released.
+    implementation files('./scim-sdk-client-1.15.4-SNAPSHOT.jar')
     //implementation 'de.captaingoldfish:scim-sdk-client:1.15.3'
     implementation('org.wildfly.client:wildfly-client-config:1.0.1.Final') {
         transitive false
