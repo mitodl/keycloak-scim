@@ -162,16 +162,23 @@ public class ScimClient {
                 return;
             var resource = adapter.query("findById", adapter.getId()).getSingleResult();
             adapter.apply(resource);
+            String url = genScimUrl(adapter.getSCIMEndpoint(), adapter.getExternalId());
             var retry = registry.retry("replace-" + adapter.getId());
             ServerResponse<S> response = retry.executeSupplier(() -> {
                 try {
-                    return scimRequestBuilder
-                    .update(genScimUrl(adapter.getSCIMEndpoint(), adapter.getExternalId()),
-                                       adapter.getResourceClass())
-                    .setResource(adapter.toSCIM(false))
-                    .sendRequest() ;
+                    LOGGER.info(adapter.getType());
+                    if ( (adapter.getType() == "Group" && this.model.get("group-patchOp",false) ) ||
+                         (adapter.getType() == "User" && this.model.get("user-patchOp",false) )){
+                        return adapter.toPatchBuilder(scimRequestBuilder, url)
+                                      .sendRequest();
+                    }
+                    else {
+                        return scimRequestBuilder
+                            .update(url, adapter.getResourceClass())
+                            .setResource(adapter.toSCIM(false))
+                            .sendRequest() ;
+                    }
                 } catch ( ResponseException e) {
-
                     throw new RuntimeException(e);
                 }
             });

@@ -7,6 +7,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
 
+import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
+import de.captaingoldfish.scim.sdk.client.builder.PatchBuilder;
+import de.captaingoldfish.scim.sdk.common.constants.enums.PatchOp;
 import de.captaingoldfish.scim.sdk.common.resources.User;
 import de.captaingoldfish.scim.sdk.common.resources.multicomplex.Email;
 import de.captaingoldfish.scim.sdk.common.resources.complex.Name;
@@ -218,5 +221,30 @@ public class UserAdapter extends Adapter<UserModel, User> {
     @Override
     public Boolean skipRefresh() {
         return getUsername().equals("admin");
+    }
+    @Override
+    public PatchBuilder<User> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url) {
+        var emails = new ArrayList<Email>();
+        if (email != null) {
+            emails.add(
+                Email.builder().value(getEmail()).build());
+        }
+        PatchBuilder<User> patchBuilder;
+        patchBuilder = scimRequestBuilder.patch(url, User.class);
+        patchBuilder.addOperation()
+                      .path("active")
+                      .op(PatchOp.REPLACE)
+                      .value(active.toString())
+                      .next()
+                      .path("userName")
+                      .op(PatchOp.REPLACE)
+                      .value(username)
+                      .next()
+                      .path("displayName")
+                      .op(PatchOp.REPLACE)
+                      .value(displayName)
+                    .build();
+
+        return patchBuilder;
     }
 }

@@ -4,10 +4,15 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.persistence.NoResultException;
+
+import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
+import de.captaingoldfish.scim.sdk.client.builder.PatchBuilder;
+import de.captaingoldfish.scim.sdk.common.constants.enums.PatchOp;
 import de.captaingoldfish.scim.sdk.common.resources.Group;
 import de.captaingoldfish.scim.sdk.common.resources.multicomplex.Member;
 import de.captaingoldfish.scim.sdk.common.resources.complex.Meta;
@@ -149,4 +154,46 @@ public class GroupAdapter extends Adapter<GroupModel, Group> {
         return false;
     }
 
+    @Override
+    public PatchBuilder<Group> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url) {
+        List<Member> groupMembers = new ArrayList<>();
+        PatchBuilder<Group> patchBuilder;
+        patchBuilder = scimRequestBuilder.patch(url, Group.class);
+        if (members.size() > 0) {
+            for (String member : members) {
+                var userMapping = this.query("findById", member, "User").getSingleResult();
+                groupMembers.add(Member.builder().value(userMapping.getExternalId()).build());
+            }
+            patchBuilder.addOperation()
+                .path("members")
+                .op(PatchOp.REPLACE)
+                .valueNodes(groupMembers)
+                .next()
+                .op(PatchOp.REPLACE)
+                .path("displayName")
+                .value(displayName)
+                .next()
+                .op(PatchOp.REPLACE)
+                .path("externalId")
+                .value(id)
+                .build();
+        } else {
+            patchBuilder.addOperation()
+                .path("members")
+                .op(PatchOp.REMOVE)
+                .value(null)
+                .next()
+                .op(PatchOp.REPLACE)
+                .path("displayName")
+                .value(displayName)
+                .next()
+                .op(PatchOp.REPLACE)
+                .path("externalId")
+                .value(id)
+                .build();
+
+            }
+        LOGGER.info(patchBuilder.getResource());
+        return patchBuilder;
+    }
 }

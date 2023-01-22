@@ -13,7 +13,8 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleMapperModel;
 import sh.libre.scim.jpa.ScimResource;
-
+import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
+import de.captaingoldfish.scim.sdk.client.builder.PatchBuilder;
 import de.captaingoldfish.scim.sdk.common.resources.ResourceNode;
 
 public abstract class Adapter<M extends RoleMapperModel, S extends ResourceNode> {
@@ -38,6 +39,10 @@ public abstract class Adapter<M extends RoleMapperModel, S extends ResourceNode>
         this.em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
         this.type = type;
         this.LOGGER = logger;
+    }
+
+    public String getType() {
+        return type;
     }
 
     public String getId() {
@@ -125,6 +130,8 @@ public abstract class Adapter<M extends RoleMapperModel, S extends ResourceNode>
     public abstract Class<S> getResourceClass();
 
     public abstract S toSCIM(Boolean addMeta);
+
+    public abstract PatchBuilder<S> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url);
 
     public abstract Boolean entityExists();
 

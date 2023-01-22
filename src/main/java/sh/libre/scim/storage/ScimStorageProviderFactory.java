@@ -96,6 +96,20 @@ public class ScimStorageProviderFactory
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
                 .label("Enable refresh during sync")
                 .add()
+                .property()
+                .name("group-patchOp")
+                .type(ProviderConfigProperty.BOOLEAN_TYPE)
+                .label("Use patchOp for groups")
+                .helpText("Only used when endpoint doesn't support putGroup API operation (full replace)")
+                .defaultValue(false)
+                .add()
+                .property()
+                .name("user-patchOp")
+                .type(ProviderConfigProperty.BOOLEAN_TYPE)
+                .label("Use patchOp for users")
+                .helpText("Only used when endpoint doesn't support putUser API operation (full replace)")
+                .defaultValue(false)
+                .add()
                 .build();
     }
 
