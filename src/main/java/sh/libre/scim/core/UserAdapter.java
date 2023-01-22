@@ -7,17 +7,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
 
-import com.unboundid.scim2.common.types.Email;
-import com.unboundid.scim2.common.types.Meta;
-import com.unboundid.scim2.common.types.Role;
-import com.unboundid.scim2.common.types.UserResource;
+import de.captaingoldfish.scim.sdk.common.resources.User;
+import de.captaingoldfish.scim.sdk.common.resources.multicomplex.Email;
+import de.captaingoldfish.scim.sdk.common.resources.complex.Name;
+import de.captaingoldfish.scim.sdk.common.resources.multicomplex.PersonRole;
+import de.captaingoldfish.scim.sdk.common.resources.complex.Meta;
+
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
 
-public class UserAdapter extends Adapter<UserModel, UserResource> {
+public class UserAdapter extends Adapter<UserModel, User> {
 
     private String username;
     private String displayName;
@@ -78,8 +80,8 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     }
 
     @Override
-    public Class<UserResource> getResourceClass() {
-        return UserResource.class;
+    public Class<User> getResourceClass() {
+        return User.class;
     }
 
     @Override
@@ -114,27 +116,29 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
     }
 
     @Override
-    public void apply(UserResource user) {
-        setExternalId(user.getId());
-        setUsername(user.getUserName());
-        setDisplayName(user.getDisplayName());
-        setActive(user.getActive());
+    public void apply(User user) {
+        setExternalId(user.getId().get());
+        setUsername(user.getUserName().get());
+        setDisplayName(user.getDisplayName().get());
+        setActive(user.isActive().get());
         if (user.getEmails().size() > 0) {
-            setEmail(user.getEmails().get(0).getValue());
+            setEmail(user.getEmails().get(0).getValue().get());
         }
     }
 
     @Override
-    public UserResource toSCIM(Boolean addMeta) {
-        var user = new UserResource();
+    public User toSCIM(Boolean addMeta) {
+        var user = new User();
         user.setExternalId(id);
         user.setUserName(username);
         user.setId(externalId);
         user.setDisplayName(displayName);
+        Name name = new Name();
+        user.setName(name);
         var emails = new ArrayList<Email>();
         if (email != null) {
             emails.add(
-                    new Email().setPrimary(true).setValue(email));
+                Email.builder().value(getEmail()).build());
         }
         user.setEmails(emails);
         user.setActive(active);
@@ -142,14 +146,14 @@ public class UserAdapter extends Adapter<UserModel, UserResource> {
             var meta = new Meta();
             try {
                 var uri = new URI("Users/" + externalId);
-                meta.setLocation(uri);
+              meta.setLocation(uri.toString());
             } catch (URISyntaxException e) {
             }
             user.setMeta(meta);
         }
-        List<Role> roles = new ArrayList<Role>();
+        List<PersonRole> roles = new ArrayList<PersonRole>();
         for (var r : this.roles) {
-            var role = new Role();
+            var role = new PersonRole();
             role.setValue(r);
             roles.add(role);
         }

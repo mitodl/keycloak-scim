@@ -5,8 +5,6 @@ import java.util.List;
 
 import javax.ws.rs.core.MediaType;
 
-import com.unboundid.scim2.client.ScimService;
-
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
@@ -23,6 +21,8 @@ import org.keycloak.storage.user.SynchronizationResult;
 import sh.libre.scim.core.GroupAdapter;
 import sh.libre.scim.core.ScimDispatcher;
 import sh.libre.scim.core.UserAdapter;
+
+import de.captaingoldfish.scim.sdk.common.constants.HttpHeader;
 
 public class ScimStorageProviderFactory
         implements UserStorageProviderFactory<ScimStorageProvider>, ImportSynchronization {
@@ -43,8 +43,8 @@ public class ScimStorageProviderFactory
                 .type(ProviderConfigProperty.LIST_TYPE)
                 .label("Endpoint content type")
                 .helpText("Only used when endpoint doesn't support application/scim+json")
-                .options(MediaType.APPLICATION_JSON.toString(), ScimService.MEDIA_TYPE_SCIM_TYPE.toString())
-                .defaultValue(ScimService.MEDIA_TYPE_SCIM_TYPE.toString())
+                .options(MediaType.APPLICATION_JSON.toString(), HttpHeader.SCIM_CONTENT_TYPE)
+                .defaultValue(HttpHeader.SCIM_CONTENT_TYPE)
                 .add()
                 .property()
                 .name("auth-mode")

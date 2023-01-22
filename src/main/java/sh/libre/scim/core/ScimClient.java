@@ -1,60 +1,107 @@
 package sh.libre.scim.core;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.ws.rs.ProcessingException;
-import javax.ws.rs.client.Client;
 
-import com.unboundid.scim2.client.ScimService;
-import com.unboundid.scim2.common.ScimResource;
-import com.unboundid.scim2.common.exceptions.ScimException;
+import de.captaingoldfish.scim.sdk.client.ScimClientConfig;
+import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
+import de.captaingoldfish.scim.sdk.client.http.BasicAuth;
+import de.captaingoldfish.scim.sdk.client.response.ServerResponse;
+import de.captaingoldfish.scim.sdk.common.exceptions.ResponseException;
+import de.captaingoldfish.scim.sdk.common.resources.ResourceNode;
+import de.captaingoldfish.scim.sdk.common.response.ListResponse;
 
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RoleMapperModel;
 import org.keycloak.storage.user.SynchronizationResult;
 
+import com.google.common.net.HttpHeaders;
+
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
 
+
 public class ScimClient {
     final protected Logger LOGGER = Logger.getLogger(ScimClient.class);
-    final protected Client client = ResteasyClientBuilder.newClient();
-    final protected ScimService scimService;
+    final protected ScimRequestBuilder scimRequestBuilder;
     final protected RetryRegistry registry;
     final protected KeycloakSession session;
     final protected String contentType;
     final protected ComponentModel model;
+    final protected String scimApplicationBaseUrl;
+    final protected Map<String, String> defaultHeaders;
+    final protected Map<String, String> expectedResponseHeaders;
 
     public ScimClient(ComponentModel model, KeycloakSession session) {
         this.model = model;
         this.contentType = model.get("content-type");
-
         this.session = session;
-        var target = client.target(model.get("endpoint"));
+        this.scimApplicationBaseUrl = model.get("endpoint");
+        this.defaultHeaders = new HashMap<>();
+        this.expectedResponseHeaders = new HashMap<>();
+
         switch (model.get("auth-mode")) {
             case "BEARER":
-                target = target.register(new BearerAuthentication(model.get("auth-pass")));
+                defaultHeaders.put(HttpHeaders.AUTHORIZATION,
+                    BearerAuthentication(model.get("auth-pass")));
                 break;
             case "BASIC_AUTH":
-                target = target.register(new BasicAuthentication(
-                        model.get("auth-user"),
-                        model.get("auth-pass")));
+                defaultHeaders.put(HttpHeaders.AUTHORIZATION,
+                    BasicAuthentication(model.get("auth-user"),
+                                        model.get("auth-pass")));
+                break;
         }
 
-        scimService = new ScimService(target);
+        defaultHeaders.put(HttpHeaders.CONTENT_TYPE,contentType);
+
+        scimRequestBuilder = new ScimRequestBuilder(scimApplicationBaseUrl, genScimClientConfig());
 
         RetryConfig retryConfig = RetryConfig.custom()
-                .maxAttempts(10)
-                .intervalFunction(IntervalFunction.ofExponentialBackoff())
-                .retryExceptions(ProcessingException.class)
-                .build();
+            .maxAttempts(10)
+            .intervalFunction(IntervalFunction.ofExponentialBackoff())
+            .retryExceptions(ProcessingException.class)
+            .build();
+
         registry = RetryRegistry.of(retryConfig);
     }
+
+    protected String BasicAuthentication(String username ,String password) {
+        return  BasicAuth.builder()
+        .username(model.get(username))
+        .password(model.get(password))
+        .build()
+        .getAuthorizationHeaderValue();
+    }
+
+    protected ScimClientConfig genScimClientConfig() {
+        return ScimClientConfig.builder()
+        .httpHeaders(defaultHeaders)
+        .connectTimeout(5)
+        .requestTimeout(5)
+        .socketTimeout(5)
+        .expectedHttpResponseHeaders(expectedResponseHeaders)
+        .hostnameVerifier((s, sslSession) -> true)
+        .build();
+    }
+
+    protected String BearerAuthentication(String token) {
+        return "Bearer " + token ;
+    }
+
+    protected String genScimUrl(String scimEndpoint,String resourcePath) {
+        return String.format("%s%s/%s", scimApplicationBaseUrl ,
+                            scimEndpoint,
+                            resourcePath);
+    }
+
 
     protected EntityManager getEM() {
         return session.getProvider(JpaConnectionProvider.class).getEntityManager();
@@ -64,7 +111,7 @@ public class ScimClient {
         return session.getContext().getRealm().getId();
     }
 
-    protected <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> A getAdapter(
+    protected <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> A getAdapter(
             Class<A> aClass) {
         try {
             return aClass.getDeclaredConstructor(KeycloakSession.class, String.class)
@@ -74,7 +121,7 @@ public class ScimClient {
         }
     }
 
-    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void create(Class<A> aClass,
+    public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void create(Class<A> aClass,
             M kcModel) {
         var adapter = getAdapter(aClass);
         adapter.apply(kcModel);
@@ -85,21 +132,28 @@ public class ScimClient {
             return;
         }
         var retry = registry.retry("create-" + adapter.getId());
-        var resource = retry.executeSupplier(() -> {
+
+        ServerResponse<S> response = retry.executeSupplier(() -> {
             try {
-                return scimService.createRequest(adapter.getSCIMEndpoint(),
-                        adapter.toSCIM(false))
-                        .contentType(contentType).invoke();
-            } catch (ScimException e) {
+                return scimRequestBuilder
+                .create(adapter.getResourceClass(), String.format("/" + adapter.getSCIMEndpoint()))
+                .setResource(adapter.toSCIM(false))
+                .sendRequest();
+            } catch ( ResponseException e) {
                 throw new RuntimeException(e);
             }
         });
-        adapter.apply(resource);
-        adapter.saveMapping();
 
+        if (!response.isSuccess()){
+            LOGGER.warn(response.getResponseBody());
+            LOGGER.warn(response.getHttpStatus());
+        }
+
+        adapter.apply(response.getResource());
+        adapter.saveMapping();
     };
 
-    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void replace(Class<A> aClass,
+    public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void replace(Class<A> aClass,
             M kcModel) {
         var adapter = getAdapter(aClass);
         try {
@@ -109,13 +163,22 @@ public class ScimClient {
             var resource = adapter.query("findById", adapter.getId()).getSingleResult();
             adapter.apply(resource);
             var retry = registry.retry("replace-" + adapter.getId());
-            retry.executeSupplier(() -> {
+            ServerResponse<S> response = retry.executeSupplier(() -> {
                 try {
-                    return scimService.replaceRequest(adapter.toSCIM(true)).contentType(contentType).invoke();
-                } catch (ScimException e) {
+                    return scimRequestBuilder
+                    .update(genScimUrl(adapter.getSCIMEndpoint(), adapter.getExternalId()),
+                                       adapter.getResourceClass())
+                    .setResource(adapter.toSCIM(false))
+                    .sendRequest() ;
+                } catch ( ResponseException e) {
+
                     throw new RuntimeException(e);
                 }
             });
+            if (!response.isSuccess()){
+                LOGGER.warn(response.getResponseBody());
+                LOGGER.warn(response.getHttpStatus());
+            }
         } catch (NoResultException e) {
             LOGGER.warnf("failed to replace resource %s, scim mapping not found", adapter.getId());
         } catch (Exception e) {
@@ -123,30 +186,40 @@ public class ScimClient {
         }
     }
 
-    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void delete(Class<A> aClass,
+    public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void delete(Class<A> aClass,
             String id) {
         var adapter = getAdapter(aClass);
         adapter.setId(id);
+
         try {
             var resource = adapter.query("findById", adapter.getId()).getSingleResult();
             adapter.apply(resource);
+
             var retry = registry.retry("delete-" + id);
-            retry.executeSupplier(() -> {
+
+            ServerResponse<S> response = retry.executeSupplier(() -> {
                 try {
-                    scimService.deleteRequest(adapter.getSCIMEndpoint(), resource.getExternalId())
-                            .contentType(contentType).invoke();
-                } catch (ScimException e) {
+                    return scimRequestBuilder.delete(genScimUrl(adapter.getSCIMEndpoint(), adapter.getExternalId()),
+                                                                adapter.getResourceClass())
+                                             .sendRequest();
+                } catch (ResponseException e) {
                     throw new RuntimeException(e);
                 }
-                return "";
             });
+
+            if (!response.isSuccess()){
+                LOGGER.warn(response.getResponseBody());
+                LOGGER.warn(response.getHttpStatus());
+            }
+
             getEM().remove(resource);
+
         } catch (NoResultException e) {
             LOGGER.warnf("Failed to delete resource %s, scim mapping not found", id);
         }
     }
 
-    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void refreshResources(
+    public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void refreshResources(
             Class<A> aClass,
             SynchronizationResult syncRes) {
         LOGGER.info("Refresh resources");
@@ -169,16 +242,17 @@ public class ScimClient {
 
     }
 
-    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void importResources(
+    public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void importResources(
             Class<A> aClass, SynchronizationResult syncRes) {
         LOGGER.info("Import");
         try {
             var adapter = getAdapter(aClass);
-            var resources = scimService.searchRequest(adapter.getSCIMEndpoint()).contentType(contentType)
-                    .invoke(adapter.getResourceClass());
-            for (var resource : resources) {
+            ServerResponse<ListResponse<S>> response  = scimRequestBuilder.list("url",adapter.getResourceClass()).get().sendRequest();
+            ListResponse<S> resourceTypeListResponse = response.getResource();
+
+            for (var resource : resourceTypeListResponse.getListedResources()) {
                 try {
-                    LOGGER.infof("Reconciling remote resource %s", resource.getId());
+                    LOGGER.infof("Reconciling remote resource %s", resource);
                     adapter = getAdapter(aClass);
                     adapter.apply(resource);
 
@@ -212,9 +286,11 @@ public class ScimClient {
                                 break;
                             case "DELETE_REMOTE":
                                 LOGGER.info("Delete remote resource");
-                                scimService.deleteRequest(adapter.getSCIMEndpoint(), resource.getId())
-                                        .contentType(contentType)
-                                        .invoke();
+                                scimRequestBuilder
+                                    .delete(genScimUrl(adapter.getSCIMEndpoint(),
+                                                       resource.getId().get()),
+                                                       adapter.getResourceClass())
+                                    .sendRequest();
                                 syncRes.increaseRemoved();
                                 break;
                         }
@@ -225,12 +301,12 @@ public class ScimClient {
                     syncRes.increaseFailed();
                 }
             }
-        } catch (ScimException e) {
+        } catch (ResponseException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public <M extends RoleMapperModel, S extends ScimResource, A extends Adapter<M, S>> void sync(Class<A> aClass,
+    public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void sync(Class<A> aClass,
             SynchronizationResult syncRes) {
         if (this.model.get("sync-import", false)) {
             this.importResources(aClass, syncRes);
@@ -241,6 +317,6 @@ public class ScimClient {
     }
 
     public void close() {
-        client.close();
+        scimRequestBuilder.close();
     }
 }

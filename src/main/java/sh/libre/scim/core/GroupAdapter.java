@@ -7,19 +7,16 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import javax.persistence.NoResultException;
-
-import com.unboundid.scim2.common.types.GroupResource;
-import com.unboundid.scim2.common.types.Member;
-import com.unboundid.scim2.common.types.Meta;
-
+import de.captaingoldfish.scim.sdk.common.resources.Group;
+import de.captaingoldfish.scim.sdk.common.resources.multicomplex.Member;
+import de.captaingoldfish.scim.sdk.common.resources.complex.Meta;
 import org.apache.commons.lang.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 
-public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
+public class GroupAdapter extends Adapter<GroupModel, Group> {
 
     private String displayName;
     private Set<String> members = new HashSet<String>();
@@ -39,8 +36,8 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
     }
 
     @Override
-    public Class<GroupResource> getResourceClass() {
-        return GroupResource.class;
+    public Class<Group> getResourceClass() {
+        return Group.class;
     }
 
     @Override
@@ -55,14 +52,14 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
     }
 
     @Override
-    public void apply(GroupResource group) {
-        setExternalId(group.getId());
-        setDisplayName(group.getDisplayName());
+    public void apply(Group group) {
+        setExternalId(group.getId().get());
+        setDisplayName(group.getDisplayName().get());
         var groupMembers = group.getMembers();
         if (groupMembers != null && groupMembers.size() > 0) {
             this.members = new HashSet<String>();
             for (var groupMember : groupMembers) {
-                var userMapping = this.query("findByExternalId", groupMember.getValue(), "User")
+                var userMapping = this.query("findByExternalId", groupMember.getValue().get(), "User")
                         .getSingleResult();
                 this.members.add(userMapping.getId());
             }
@@ -70,8 +67,8 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
     }
 
     @Override
-    public GroupResource toSCIM(Boolean addMeta) {
-        var group = new GroupResource();
+    public Group toSCIM(Boolean addMeta) {
+        var group = new Group();
         group.setId(externalId);
         group.setExternalId(id);
         group.setDisplayName(displayName);
@@ -83,7 +80,7 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
                     var userMapping = this.query("findById", member, "User").getSingleResult();
                     groupMember.setValue(userMapping.getExternalId());
                     var ref = new URI(String.format("Users/%s", userMapping.getExternalId()));
-                    groupMember.setRef(ref);
+                    groupMember.setRef(ref.toString());
                     groupMembers.add(groupMember);
                 } catch (Exception e) {
                     LOGGER.error(e);
@@ -95,7 +92,7 @@ public class GroupAdapter extends Adapter<GroupModel, GroupResource> {
             var meta = new Meta();
             try {
                 var uri = new URI("Groups/" + externalId);
-                meta.setLocation(uri);
+                meta.setLocation(uri.toString());
             } catch (URISyntaxException e) {
             }
             group.setMeta(meta);

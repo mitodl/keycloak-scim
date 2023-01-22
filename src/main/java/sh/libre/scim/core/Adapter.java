@@ -14,7 +14,9 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleMapperModel;
 import sh.libre.scim.jpa.ScimResource;
 
-public abstract class Adapter<M extends RoleMapperModel, S extends com.unboundid.scim2.common.ScimResource> {
+import de.captaingoldfish.scim.sdk.common.resources.ResourceNode;
+
+public abstract class Adapter<M extends RoleMapperModel, S extends ResourceNode> {
 
     protected final Logger LOGGER;
     protected final String realmId;
