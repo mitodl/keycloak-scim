@@ -10,26 +10,16 @@ description = 'keycloak-scim'
 java.sourceCompatibility = JavaVersion.VERSION_11
 
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
 dependencies {
-    compileOnly 'org.keycloak:keycloak-core:18.0.0'
-    compileOnly 'org.keycloak:keycloak-server-spi:18.0.0'
-    compileOnly 'org.keycloak:keycloak-server-spi-private:18.0.0'
-    compileOnly 'org.keycloak:keycloak-services:18.0.0'
-    compileOnly 'org.keycloak:keycloak-model-jpa:18.0.0'
+    compileOnly 'org.keycloak:keycloak-core:20.0.0'
+    compileOnly 'org.keycloak:keycloak-server-spi:20.0.0'
+    compileOnly 'org.keycloak:keycloak-server-spi-private:20.0.0'
+    compileOnly 'org.keycloak:keycloak-services:20.0.0'
+    compileOnly 'org.keycloak:keycloak-model-jpa:20.0.0'
     implementation 'io.github.resilience4j:resilience4j-retry:1.7.1'
-    implementation 'de.captaingoldfish:scim-sdk-common:1.15.3'
-    // User latest build of scim-sdk-client as it adds needed features
-    // This will be reverted to public repo once 1.15.4 version is released.
-    implementation files('./scim-sdk-client-1.15.4-SNAPSHOT.jar')
-    //implementation 'de.captaingoldfish:scim-sdk-client:1.15.3'
-    implementation('org.wildfly.client:wildfly-client-config:1.0.1.Final') {
-        transitive false
-    }
-    implementation('org.jboss.resteasy:resteasy-client:4.7.6.Final') {
-        transitive false
-    }
+    implementation 'de.captaingoldfish:scim-sdk-common:1.16.0'
+    implementation 'de.captaingoldfish:scim-sdk-client:1.16.0'
 }
