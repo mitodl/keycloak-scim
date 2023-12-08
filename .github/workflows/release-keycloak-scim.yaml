@@ -31,4 +31,4 @@ jobs:
         prerelease: false
         title: "keycloak-scim release"
         files: |
-          ./build-libs/*.jar
+          ./build/libs/*.jar
