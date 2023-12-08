@@ -21,7 +21,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Build with Gradle
-      run: gradle build --rerun-tasks clean
+      run: gradle build
 
     - name: Create Release with jar file
       uses: "marvinpinto/action-automatic-releases@latest"
