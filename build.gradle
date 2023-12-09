@@ -21,5 +21,5 @@ dependencies {
     compileOnly 'org.keycloak:keycloak-model-jpa:20.0.5'
     implementation 'io.github.resilience4j:resilience4j-retry:1.7.1'
     implementation 'de.captaingoldfish:scim-sdk-common:1.16.0'
-    implementation 'de.captaingoldfish:scim-sdk-client:1.16.0'
+    implementation 'de.captaingoldfish:scim-sdk-client:1.21.1'
 }
