@@ -15,7 +15,7 @@ repositories {
 
 dependencies {
     compileOnly 'org.keycloak:keycloak-core:20.0.5'
-    compileOnly 'org.keycloak:keycloak-server-spi:20.0.0'
+    compileOnly 'org.keycloak:keycloak-server-spi:20.0.5'
     compileOnly 'org.keycloak:keycloak-server-spi-private:20.0.0'
     compileOnly 'org.keycloak:keycloak-services:20.0.0'
     compileOnly 'org.keycloak:keycloak-model-jpa:20.0.5'
