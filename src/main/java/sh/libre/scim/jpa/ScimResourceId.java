@@ -63,16 +63,18 @@ public class ScimResourceId implements Serializable {
 
     @Override
     public boolean equals(Object other) {
-        if (this == other)
+        if (this == other) {
             return true;
-        if (!(other instanceof ScimResourceId))
+        }
+        if (!(other instanceof ScimResourceId)) {
             return false;
+        }
         var o = (ScimResourceId) other;
-        return (o.id == id &&
-                o.realmId == realmId &&
-                o.componentId == componentId &&
-                o.type == type &&
-                o.externalId == externalId);
+        return o.id == id
+                && o.realmId == realmId
+                && o.componentId == componentId
+                && o.type == type
+                && o.externalId == externalId;
     }
 
     @Override

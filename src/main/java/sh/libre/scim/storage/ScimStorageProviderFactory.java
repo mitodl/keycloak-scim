@@ -3,7 +3,7 @@ package sh.libre.scim.storage;
 import java.util.Date;
 import java.util.List;
 
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
@@ -35,8 +35,10 @@ public class ScimStorageProviderFactory
                 .name("endpoint")
                 .type(ProviderConfigProperty.STRING_TYPE)
                 .label("SCIM 2.0 endpoint")
-                .helpText("External SCIM 2.0 base " +
-                        "URL (/ServiceProviderConfig  /Schemas and /ResourcesTypes should be accessible)")
+                .helpText("""
+                        External SCIM 2.0 base \
+                        URL (/ServiceProviderConfig  /Schemas and /ResourcesTypes should be accessible)\
+                        """)
                 .add()
                 .property()
                 .name("content-type")
@@ -141,11 +143,11 @@ public class ScimStorageProviderFactory
                 var realm = session.realms().getRealm(realmId);
                 session.getContext().setRealm(realm);
                 var dispatcher = new ScimDispatcher(session);
-                if (model.get("propagation-user").equals("true")) {
-                    dispatcher.runOne(model, (client) -> client.sync(UserAdapter.class, result));
+                if ("true".equals(model.get("propagation-user"))) {
+                    dispatcher.runOne(model, client -> client.sync(UserAdapter.class, result));
                 }
-                if (model.get("propagation-group").equals("true")) {
-                    dispatcher.runOne(model, (client) -> client.sync(GroupAdapter.class, result));
+                if ("true".equals(model.get("propagation-group"))) {
+                    dispatcher.runOne(model, client -> client.sync(GroupAdapter.class, result));
                 }
             }
 

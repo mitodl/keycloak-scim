@@ -3,9 +3,9 @@ package sh.libre.scim.core;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.persistence.EntityManager;
-import javax.persistence.NoResultException;
-import javax.ws.rs.ProcessingException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.ws.rs.ProcessingException;
 
 import de.captaingoldfish.scim.sdk.client.ScimClientConfig;
 import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
@@ -60,7 +60,7 @@ public class ScimClient {
                 break;
         }
 
-        defaultHeaders.put(HttpHeaders.CONTENT_TYPE,contentType);
+        defaultHeaders.put(HttpHeaders.CONTENT_TYPE, contentType);
 
         scimRequestBuilder = new ScimRequestBuilder(scimApplicationBaseUrl, genScimClientConfig());
 
@@ -73,7 +73,7 @@ public class ScimClient {
         registry = RetryRegistry.of(retryConfig);
     }
 
-    protected String BasicAuthentication(String username ,String password) {
+    protected String BasicAuthentication(String username, String password) {
         return  BasicAuth.builder()
         .username(model.get(username))
         .password(model.get(password))
@@ -96,10 +96,10 @@ public class ScimClient {
         return "Bearer " + token ;
     }
 
-    protected String genScimUrl(String scimEndpoint,String resourcePath) {
-        return String.format("%s%s/%s", scimApplicationBaseUrl ,
-                            scimEndpoint,
-                            resourcePath);
+    protected String genScimUrl(String scimEndpoint, String resourcePath) {
+        return "%s%s/%s".formatted(scimApplicationBaseUrl,
+                scimEndpoint,
+                resourcePath);
     }
 
 
@@ -125,8 +125,9 @@ public class ScimClient {
             M kcModel) {
         var adapter = getAdapter(aClass);
         adapter.apply(kcModel);
-        if (adapter.skip)
+        if (adapter.skip) {
             return;
+        }
         // If mapping exist then it was created by import so skip.
         if (adapter.query("findById", adapter.getId()).getResultList().size() != 0) {
             return;
@@ -136,10 +137,10 @@ public class ScimClient {
         ServerResponse<S> response = retry.executeSupplier(() -> {
             try {
                 return scimRequestBuilder
-                .create(adapter.getResourceClass(), String.format("/" + adapter.getSCIMEndpoint()))
+                .create(adapter.getResourceClass(), ("/" + adapter.getSCIMEndpoint()).formatted())
                 .setResource(adapter.toSCIM(false))
                 .sendRequest();
-            } catch ( ResponseException e) {
+            } catch (ResponseException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -158,8 +159,9 @@ public class ScimClient {
         var adapter = getAdapter(aClass);
         try {
             adapter.apply(kcModel);
-            if (adapter.skip)
+            if (adapter.skip) {
                 return;
+            }
             var resource = adapter.query("findById", adapter.getId()).getSingleResult();
             adapter.apply(resource);
             String url = genScimUrl(adapter.getSCIMEndpoint(), adapter.getExternalId());
@@ -167,8 +169,8 @@ public class ScimClient {
             ServerResponse<S> response = retry.executeSupplier(() -> {
                 try {
                     LOGGER.info(adapter.getType());
-                    if ( (adapter.getType() == "Group" && this.model.get("group-patchOp",false) ) ||
-                         (adapter.getType() == "User" && this.model.get("user-patchOp",false) )){
+                    if ((adapter.getType() == "Group" && this.model.get("group-patchOp", false))
+                         || (adapter.getType() == "User" && this.model.get("user-patchOp", false))) {
                         return adapter.toPatchBuilder(scimRequestBuilder, url)
                                       .sendRequest();
                     }
@@ -176,9 +178,9 @@ public class ScimClient {
                         return scimRequestBuilder
                             .update(url, adapter.getResourceClass())
                             .setResource(adapter.toSCIM(false))
-                            .sendRequest() ;
+                            .sendRequest();
                     }
-                } catch ( ResponseException e) {
+                } catch (ResponseException e) {
                     throw new RuntimeException(e);
                 }
             });
@@ -254,7 +256,7 @@ public class ScimClient {
         LOGGER.info("Import");
         try {
             var adapter = getAdapter(aClass);
-            ServerResponse<ListResponse<S>> response  = scimRequestBuilder.list("url",adapter.getResourceClass()).get().sendRequest();
+            ServerResponse<ListResponse<S>> response  = scimRequestBuilder.list("url", adapter.getResourceClass()).get().sendRequest();
             ListResponse<S> resourceTypeListResponse = response.getResource();
 
             for (var resource : resourceTypeListResponse.getListedResources()) {

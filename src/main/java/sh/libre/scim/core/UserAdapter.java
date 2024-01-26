@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
@@ -17,7 +18,7 @@ import de.captaingoldfish.scim.sdk.common.resources.multicomplex.PersonRole;
 import de.captaingoldfish.scim.sdk.common.resources.complex.Meta;
 
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
@@ -101,16 +102,16 @@ public class UserAdapter extends Adapter<UserModel, User> {
         setActive(user.isEnabled());
         var rolesSet = new HashSet<String>();
         user.getGroupsStream().flatMap(g -> g.getRoleMappingsStream())
-                .filter((r) -> r.getFirstAttribute("scim").equals("true")).map((r) -> r.getName())
+                .filter(r -> "true".equals(r.getFirstAttribute("scim"))).map(r -> r.getName())
                 .forEach(r -> rolesSet.add(r));
 
-        user.getRoleMappingsStream().filter((r) -> {
+        user.getRoleMappingsStream().filter(r -> {
             var attr = r.getFirstAttribute("scim");
             if (attr == null) {
                 return false;
             }
-            return attr.equals("true");
-        }).map((r) -> r.getName()).forEach(r -> rolesSet.add(r));
+            return "true".equals(attr);
+        }).map(r -> r.getName()).forEach(r -> rolesSet.add(r));
 
         var roles = new String[rolesSet.size()];
         rolesSet.toArray(roles);
@@ -215,12 +216,12 @@ public class UserAdapter extends Adapter<UserModel, User> {
 
     @Override
     public Stream<UserModel> getResourceStream() {
-        return this.session.users().getUsersStream(this.session.getContext().getRealm());
+        return this.session.users().searchForUserStream(this.session.getContext().getRealm(), Map.of(UserModel.ENABLED, "true"));
     }
 
     @Override
     public Boolean skipRefresh() {
-        return getUsername().equals("admin");
+        return "admin".equals(getUsername());
     }
     @Override
     public PatchBuilder<User> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url) {

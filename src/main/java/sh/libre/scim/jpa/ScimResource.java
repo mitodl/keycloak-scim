@@ -1,19 +1,19 @@
 package sh.libre.scim.jpa;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.IdClass;
-import javax.persistence.NamedQuery;
-import javax.persistence.NamedQueries;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
+import jakarta.persistence.NamedQuery;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.Table;
 
 @Entity
 @IdClass(ScimResourceId.class)
 @Table(name = "SCIM_RESOURCE")
 @NamedQueries({
                 @NamedQuery(name = "findById", query = "from ScimResource where realmId = :realmId and componentId = :componentId and type = :type and id = :id"),
-                @NamedQuery(name = "findByExternalId", query = "from ScimResource where realmId = :realmId and componentId = :componentId and type = :type and externalId = :id") })
+                @NamedQuery(name = "findByExternalId", query = "from ScimResource where realmId = :realmId and componentId = :componentId and type = :type and externalId = :id")})
 public class ScimResource {
         @Id
         @Column(name = "ID", nullable = false)

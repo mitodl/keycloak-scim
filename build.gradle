@@ -1,25 +1,39 @@
 plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'org.openrewrite.rewrite' version '6.8.0'
 }
 
 group = 'sh.libre.scim'
 version = '1.0-SNAPSHOT'
 description = 'keycloak-scim'
 
-java.sourceCompatibility = JavaVersion.VERSION_11
+java.sourceCompatibility = JavaVersion.VERSION_17
+
+rewrite {
+    activeRecipe(
+            "org.openrewrite.staticanalysis.CodeCleanup",
+            "org.openrewrite.staticanalysis.JavaApiBestPractices"
+    )
+    activeStyle("org.openrewrite.java.IntelliJ")
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    rewrite(platform("org.openrewrite.recipe:rewrite-recipe-bom:2.6.3"))
+    rewrite("org.openrewrite.recipe:rewrite-migrate-java")
+    implementation 'io.github.resilience4j:resilience4j-retry:2.2.0'
+    implementation "jakarta.ws.rs:jakarta.ws.rs-api:3.1.0"
+    implementation "jakarta.persistence:jakarta.persistence-api:3.1.0"
     compileOnly 'org.keycloak:keycloak-core:23.0.4'
     compileOnly 'org.keycloak:keycloak-server-spi:23.0.4'
     compileOnly 'org.keycloak:keycloak-server-spi-private:23.0.4'
     compileOnly 'org.keycloak:keycloak-services:23.0.4'
-    compileOnly 'org.keycloak:keycloak-model-jpa:23.0.4'
-    implementation 'io.github.resilience4j:resilience4j-retry:2.2.0'
+    implementation 'org.keycloak:keycloak-model-jpa:23.0.4'
     implementation 'de.captaingoldfish:scim-sdk-common:1.21.1'
     implementation 'de.captaingoldfish:scim-sdk-client:1.21.1'
+    implementation 'org.apache.commons:commons-lang3:3.14.0'
 }

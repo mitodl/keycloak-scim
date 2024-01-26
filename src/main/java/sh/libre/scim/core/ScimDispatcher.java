@@ -20,7 +20,7 @@ public class ScimDispatcher {
 
     public void run(String scope, Consumer<ScimClient> f) {
         session.getContext().getRealm().getComponentsStream()
-                .filter((m) -> {
+                .filter(m -> {
                     return ScimStorageProviderFactory.ID.equals(m.getProviderId()) && m.get("enabled", true)
                             && m.get("propagation-" + scope, false);
                 })
