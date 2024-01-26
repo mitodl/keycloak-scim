@@ -16,7 +16,7 @@ repositories {
 dependencies {
     compileOnly 'org.keycloak:keycloak-core:20.0.5'
     compileOnly 'org.keycloak:keycloak-server-spi:20.0.5'
-    compileOnly 'org.keycloak:keycloak-server-spi-private:20.0.5'
+    compileOnly 'org.keycloak:keycloak-server-spi-private:23.0.4'
     compileOnly 'org.keycloak:keycloak-services:23.0.4'
     compileOnly 'org.keycloak:keycloak-model-jpa:23.0.4'
     implementation 'io.github.resilience4j:resilience4j-retry:1.7.1'
