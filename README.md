@@ -74,7 +74,7 @@ If you enable import during sync then you can choose between to following import
 
 ### Sync
 
-You can set up a periodic sync for all users or just changed users - it's not necesarry. You can either do:
+You can set up a periodic sync for all users or just changed users. You can either do:
 - Periodic Full Sync
 - Periodic Changed User Sync
 
