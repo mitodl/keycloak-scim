@@ -32,7 +32,7 @@ dependencies {
     compileOnly 'org.keycloak:keycloak-server-spi:23.0.4'
     compileOnly 'org.keycloak:keycloak-server-spi-private:23.0.4'
     compileOnly 'org.keycloak:keycloak-services:23.0.4'
-    compileOnly 'org.keycloak.keycloak-model-storage:23.0.4'
+    compileOnly 'org.keycloak.keycloak-model-legacy:23.0.4'
     implementation 'org.keycloak:keycloak-model-jpa:23.0.4'
     implementation 'de.captaingoldfish:scim-sdk-common:1.21.1'
     implementation 'de.captaingoldfish:scim-sdk-client:1.21.1'
