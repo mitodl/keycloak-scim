@@ -27,6 +27,8 @@ public class UserAdapter extends Adapter<UserModel, User> {
 
     private String username;
     private String displayName;
+    private String givenName;
+    private String familyName;
     private String email;
     private Boolean active;
     private String[] roles;
@@ -43,6 +45,22 @@ public class UserAdapter extends Adapter<UserModel, User> {
         if (this.username == null) {
             this.username = username;
         }
+    }
+
+    public String getGivenName() {
+        return givenName;
+    }
+
+    public void setGivenName(String givenName) {
+        this.givenName = givenName;
+    }
+
+    public String getFamilyName() {
+        return familyName;
+    }
+
+    public void setFamilyName(String familyName) {
+        this.familyName = familyName;
     }
 
     public String getDisplayName() {
@@ -92,6 +110,8 @@ public class UserAdapter extends Adapter<UserModel, User> {
     public void apply(UserModel user) {
         setId(user.getId());
         setUsername(user.getUsername());
+        setGivenName(user.getFirstName());
+        setFamilyName(user.getLastName());
         var displayName = String.format("%s %s", StringUtils.defaultString(user.getFirstName()),
                 StringUtils.defaultString(user.getLastName())).trim();
         if (StringUtils.isEmpty(displayName)) {
@@ -138,6 +158,8 @@ public class UserAdapter extends Adapter<UserModel, User> {
         user.setId(externalId);
         user.setDisplayName(displayName);
         Name name = new Name();
+        name.setGivenName(givenName);
+        name.setFamilyName(familyName);
         user.setName(name);
         var emails = new ArrayList<Email>();
         if (email != null) {
