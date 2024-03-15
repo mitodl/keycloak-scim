@@ -39,9 +39,11 @@ public class ScimEventListenerProvider implements EventListenerProvider {
 
     @Override
     public void onEvent(Event event) {
-        if (event.getType() == EventType.REGISTER) {
+        if (event.getType() == EventType.VERIFY_EMAIL) {
             var user = getUser(event.getUserId());
-            dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.create(UserAdapter.class, user));
+            if (user.isEmailVerified()){
+                dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.create(UserAdapter.class, user));
+            }
         }
         if (event.getType() == EventType.UPDATE_EMAIL || event.getType() == EventType.UPDATE_PROFILE) {
             var user = getUser(event.getUserId());
@@ -67,17 +69,24 @@ public class ScimEventListenerProvider implements EventListenerProvider {
             LOGGER.infof("%s %s", userId, event.getOperationType());
             if (event.getOperationType() == OperationType.CREATE) {
                 var user = getUser(userId);
-                dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.create(UserAdapter.class, user));
-                user.getGroupsStream().forEach(group -> {
-                    dispatcher.run(ScimDispatcher.SCOPE_GROUP, client -> client.replace(GroupAdapter.class, group));
-                });
+                if (user.isEmailVerified()) {
+                    dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.create(UserAdapter.class, user));
+                    user.getGroupsStream().forEach(group -> {
+                        dispatcher.run(ScimDispatcher.SCOPE_GROUP, client -> client.replace(GroupAdapter.class, group));
+                    });
+                }
             }
             if (event.getOperationType() == OperationType.UPDATE) {
                 var user = getUser(userId);
-                dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.replace(UserAdapter.class, user));
+                if (user.isEmailVerified()) {
+                    dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.replace(UserAdapter.class, user));
+                }
             }
             if (event.getOperationType() == OperationType.DELETE) {
-                dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.delete(UserAdapter.class, userId));
+                var user = getUser(userId);
+                if (user.isEmailVerified()) {
+                    dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.delete(UserAdapter.class, userId));
+                }
             }
         }
         if (event.getResourceType() == ResourceType.GROUP) {
