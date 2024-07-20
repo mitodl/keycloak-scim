@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    rewrite(platform("org.openrewrite.recipe:rewrite-recipe-bom:2.14.0"))
+    rewrite(platform("org.openrewrite.recipe:rewrite-recipe-bom:2.15.0"))
     rewrite("org.openrewrite.recipe:rewrite-migrate-java")
     implementation 'io.github.resilience4j:resilience4j-retry:2.2.0'
     implementation "jakarta.ws.rs:jakarta.ws.rs-api:3.1.0"
