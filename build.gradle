@@ -38,5 +38,5 @@ dependencies {
     compileOnly 'com.google.guava:guava:31.1-jre'
     implementation 'de.captaingoldfish:scim-sdk-common:1.25.0'
     implementation 'de.captaingoldfish:scim-sdk-client:1.25.0'
-    implementation 'org.apache.commons:commons-lang3:3.16.0'
+    implementation 'org.apache.commons:commons-lang3:3.17.0'
 }
