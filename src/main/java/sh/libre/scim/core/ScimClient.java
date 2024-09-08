@@ -97,7 +97,7 @@ public class ScimClient {
     }
 
     protected String genScimUrl(String scimEndpoint, String resourcePath) {
-        return "%s%s/%s".formatted(scimApplicationBaseUrl,
+        return "%s/%s/%s".formatted(scimApplicationBaseUrl,
                 scimEndpoint,
                 resourcePath);
     }
