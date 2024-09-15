@@ -31,7 +31,7 @@ dependencies {
     compileOnly 'org.keycloak:keycloak-core:25.0.5'
     compileOnly 'org.keycloak:keycloak-server-spi:25.0.5'
     compileOnly 'org.keycloak:keycloak-server-spi-private:25.0.5'
-    compileOnly 'org.keycloak:keycloak-services:25.0.4'
+    compileOnly 'org.keycloak:keycloak-services:25.0.5'
     compileOnly 'org.keycloak:keycloak-model-legacy:24.0.5'
     compileOnly 'org.keycloak:keycloak-model-legacy-private:23.0.7'
     compileOnly 'org.keycloak:keycloak-model-jpa:25.0.5'
