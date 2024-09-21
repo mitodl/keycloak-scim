@@ -34,7 +34,7 @@ dependencies {
     compileOnly 'org.keycloak:keycloak-services:25.0.5'
     compileOnly 'org.keycloak:keycloak-model-legacy:24.0.5'
     compileOnly 'org.keycloak:keycloak-model-legacy-private:23.0.7'
-    compileOnly 'org.keycloak:keycloak-model-jpa:25.0.5'
+    compileOnly 'org.keycloak:keycloak-model-jpa:25.0.6'
     compileOnly 'com.google.guava:guava:31.1-jre'
     implementation 'de.captaingoldfish:scim-sdk-common:1.25.1'
     implementation 'de.captaingoldfish:scim-sdk-client:1.25.1'
