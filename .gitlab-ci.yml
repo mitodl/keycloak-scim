@@ -1,6 +1,6 @@
 package:
   image:
-    name: gradle:jdk11@sha256:2bf90c62924e0c8f6cff4f0f37476a60e39d47819d8f9e034ad725d5192e0b46
+    name: gradle:jdk11@sha256:5a2f8e1e382d37b3afdc0ec9d0c7e7a8d71fcc0753b3a24bf82e0a20af238f65
   script:
     - gradle jar shadowjar
     - gradle -b legacy-build.gradle shadowjar
