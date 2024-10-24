@@ -28,7 +28,7 @@ dependencies {
     implementation 'io.github.resilience4j:resilience4j-retry:2.2.0'
     implementation "jakarta.ws.rs:jakarta.ws.rs-api:4.0.0"
     implementation "jakarta.persistence:jakarta.persistence-api:3.2.0"
-    compileOnly 'org.keycloak:keycloak-core:25.0.6'
+    compileOnly 'org.keycloak:keycloak-core:26.0.2'
     compileOnly 'org.keycloak:keycloak-server-spi:25.0.6'
     compileOnly 'org.keycloak:keycloak-server-spi-private:25.0.6'
     compileOnly 'org.keycloak:keycloak-services:25.0.6'
