@@ -8,7 +8,10 @@ group = 'sh.libre.scim'
 version = '1.0-SNAPSHOT'
 description = 'keycloak-scim'
 
-sourceCompatibility = 21
+java {
+    sourceCompatibility = 21
+    targetCompatibility = 21
+}
 
 rewrite {
     activeRecipe(
