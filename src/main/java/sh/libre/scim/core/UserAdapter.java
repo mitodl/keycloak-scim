@@ -4,8 +4,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
@@ -25,6 +27,15 @@ import org.keycloak.models.UserModel;
 
 public class UserAdapter extends Adapter<UserModel, User> {
 
+    private static final Set<String> BUILT_IN_ATTRIBUTE_NAMES = Set.of(
+        UserModel.USERNAME,
+        UserModel.EMAIL,
+        UserModel.FIRST_NAME,
+        UserModel.LAST_NAME,
+        UserModel.ENABLED,
+        "scim-skip"
+    );
+
     private String username;
     private String displayName;
     private String givenName;
@@ -32,6 +43,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
     private String email;
     private Boolean active;
     private String[] roles;
+    private Map<String, String> customAttributes = new LinkedHashMap<>();
 
     public UserAdapter(KeycloakSession session, String componentId) {
         super(session, componentId, "User", Logger.getLogger(UserAdapter.class));
@@ -101,6 +113,17 @@ public class UserAdapter extends Adapter<UserModel, User> {
         this.roles = roles;
     }
 
+    public Map<String, String> getCustomAttributes() {
+        return customAttributes;
+    }
+
+    public void setCustomAttributes(Map<String, String> customAttributes) {
+        this.customAttributes = new LinkedHashMap<>();
+        if (customAttributes != null) {
+            this.customAttributes.putAll(customAttributes);
+        }
+    }
+
     @Override
     public Class<User> getResourceClass() {
         return User.class;
@@ -136,6 +159,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
         var roles = new String[rolesSet.size()];
         rolesSet.toArray(roles);
         setRoles(roles);
+        setCustomAttributes(extractCustomAttributes(user));
         this.skip = StringUtils.equals(user.getFirstAttribute("scim-skip"), "true");
     }
 
@@ -184,6 +208,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
             roles.add(role);
         }
         user.setRoles(roles);
+        customAttributes.forEach(user::put);
         return user;
     }
 
@@ -247,11 +272,6 @@ public class UserAdapter extends Adapter<UserModel, User> {
     }
     @Override
     public PatchBuilder<User> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url) {
-        var emails = new ArrayList<Email>();
-        if (email != null) {
-            emails.add(
-                Email.builder().value(getEmail()).build());
-        }
         PatchBuilder<User> patchBuilder;
         patchBuilder = scimRequestBuilder.patch(url, User.class);
         patchBuilder.addOperation()
@@ -268,6 +288,32 @@ public class UserAdapter extends Adapter<UserModel, User> {
                       .value(displayName)
                     .build();
 
+        customAttributes.forEach((attributeName, attributeValue) ->
+            patchBuilder.addOperation()
+                .path(attributeName)
+                .op(PatchOp.REPLACE)
+                .value(attributeValue)
+                .build()
+        );
+
         return patchBuilder;
+    }
+
+    private Map<String, String> extractCustomAttributes(UserModel user) {
+        var attributes = new LinkedHashMap<String, String>();
+        user.getAttributes().forEach((attributeName, values) -> {
+            if (BUILT_IN_ATTRIBUTE_NAMES.contains(attributeName) || values == null || values.isEmpty()) {
+                return;
+            }
+
+            String value = values.stream()
+                .filter(StringUtils::isNotBlank)
+                .findFirst()
+                .orElse(values.get(0));
+            if (StringUtils.isNotBlank(value)) {
+                attributes.put(attributeName, value);
+            }
+        });
+        return attributes;
     }
 }
