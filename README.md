@@ -69,6 +69,15 @@ If you enable import during sync then you can choose between to following import
 - Nothing
 - Delete Remote - deletes users from the remote application
 
+### Custom user attributes
+
+Outbound user provisioning also propagates non built-in Keycloak user attributes as SCIM additional properties.
+
+Notes:
+- only single-valued string custom attributes are propagated
+- built-in fields (`username`, `email`, `firstName`, `lastName`, `enabled`) are still handled through the standard SCIM user schema
+- the receiving SCIM server must expose matching user attributes, for example through Keycloak User Profile attribute definitions
+
 
 
 
