@@ -1,0 +1,15 @@
+dn: ou=users,dc=test,dc=local
+objectClass: organizationalUnit
+ou: users
+
+dn: uid=alice,ou=users,dc=test,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Alice Anderson
+sn: Anderson
+givenName: Alice
+uid: alice
+mail: alice@test.local
+userPassword: alicepass

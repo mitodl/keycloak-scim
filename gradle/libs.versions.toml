@@ -1,4 +1,5 @@
 [versions]
+awaitility = "4.2.2"
 commons-lang3 = "3.18.0"
 gradle-shadow = "8.3.0"
 guava = "31.1-jre"
@@ -14,8 +15,10 @@ scim-sdk = "1.25.1"
 slf4j = "2.0.16"
 testcontainers = "1.21.3"
 testcontainers-keycloak = "3.4.0"
+wiremock = "3.9.2"
 
 [libraries]
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 jakarta-persistence = { module = "jakarta.persistence:jakarta.persistence-api", version.ref = "jakarta-persistence" }
@@ -37,6 +40,7 @@ slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 testcontainers-keycloak = { module = "com.github.dasniko:testcontainers-keycloak", version.ref = "testcontainers-keycloak" }
+wiremock = { module = "org.wiremock:wiremock", version.ref = "wiremock" }
 
 [plugins]
 openrewrite = { id = "org.openrewrite.rewrite", version.ref = "openrewrite" }

@@ -70,6 +70,8 @@ dependencies {
     add(integrationTest.implementationConfigurationName, libs.testcontainers.core)
     add(integrationTest.implementationConfigurationName, libs.testcontainers.junit)
     add(integrationTest.implementationConfigurationName, libs.testcontainers.keycloak)
+    add(integrationTest.implementationConfigurationName, libs.wiremock)
+    add(integrationTest.implementationConfigurationName, libs.awaitility)
     add(integrationTest.runtimeOnlyConfigurationName, libs.slf4j.simple)
 }
 
