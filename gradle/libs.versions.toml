@@ -20,6 +20,7 @@ jakarta-persistence = { module = "jakarta.persistence:jakarta.persistence-api", 
 jakarta-ws-rs = { module = "jakarta.ws.rs:jakarta.ws.rs-api", version.ref = "jakarta-ws-rs" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 keycloak-core = { module = "org.keycloak:keycloak-core", version.ref = "keycloak" }
+keycloak-ldap-federation = { module = "org.keycloak:keycloak-ldap-federation", version.ref = "keycloak" }
 keycloak-model-jpa = { module = "org.keycloak:keycloak-model-jpa", version.ref = "keycloak" }
 keycloak-server-spi = { module = "org.keycloak:keycloak-server-spi", version.ref = "keycloak" }
 keycloak-server-spi-private = { module = "org.keycloak:keycloak-server-spi-private", version.ref = "keycloak" }

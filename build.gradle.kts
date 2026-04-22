@@ -52,6 +52,7 @@ dependencies {
     compileOnly(libs.keycloak.server.spi.private)
     compileOnly(libs.keycloak.services)
     compileOnly(libs.keycloak.model.jpa)
+    compileOnly(libs.keycloak.ldap.federation)
     compileOnly(libs.guava)
 
     implementation(libs.resilience4j.retry)
