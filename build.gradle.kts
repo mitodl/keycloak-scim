@@ -69,6 +69,8 @@ dependencies {
 
     add(integrationTest.implementationConfigurationName, libs.testcontainers.core)
     add(integrationTest.implementationConfigurationName, libs.testcontainers.junit)
+    add(integrationTest.implementationConfigurationName, libs.testcontainers.keycloak)
+    add(integrationTest.runtimeOnlyConfigurationName, libs.slf4j.simple)
 }
 
 tasks.withType<Test>().configureEach {
@@ -81,6 +83,14 @@ tasks.register<Test>("integrationTest") {
     testClassesDirs = integrationTest.output.classesDirs
     classpath = integrationTest.runtimeClasspath
     shouldRunAfter(tasks.test)
+    dependsOn(tasks.named("shadowJar"))
+    val shadowJarTask = tasks.named<Jar>("shadowJar")
+    // docker-java ships with a default API version (1.32) that modern Docker
+    // Engines reject. Pin to a version that all currently-supported engines accept.
+    systemProperty("api.version", "1.43")
+    doFirst {
+        systemProperty("keycloak.plugin.jar", shadowJarTask.get().archiveFile.get().asFile.absolutePath)
+    }
 }
 
 tasks.check {

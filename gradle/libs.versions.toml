@@ -11,7 +11,9 @@ openrewrite = "6.24.0"
 openrewrite-recipe-bom = "2.20.0"
 resilience4j = "2.2.0"
 scim-sdk = "1.25.1"
-testcontainers = "1.20.4"
+slf4j = "2.0.16"
+testcontainers = "1.21.3"
+testcontainers-keycloak = "3.4.0"
 
 [libraries]
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
@@ -31,8 +33,10 @@ openrewrite-recipe-bom = { module = "org.openrewrite.recipe:rewrite-recipe-bom",
 resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", version.ref = "resilience4j" }
 scim-sdk-client = { module = "de.captaingoldfish:scim-sdk-client", version.ref = "scim-sdk" }
 scim-sdk-common = { module = "de.captaingoldfish:scim-sdk-common", version.ref = "scim-sdk" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-keycloak = { module = "com.github.dasniko:testcontainers-keycloak", version.ref = "testcontainers-keycloak" }
 
 [plugins]
 openrewrite = { id = "org.openrewrite.rewrite", version.ref = "openrewrite" }
