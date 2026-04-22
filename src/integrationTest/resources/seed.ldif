@@ -13,3 +13,15 @@ givenName: Alice
 uid: alice
 mail: alice@test.local
 userPassword: alicepass
+
+dn: uid=bob,ou=users,dc=test,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Bob Builder
+sn: Builder
+givenName: Bob
+uid: bob
+mail: bob@test.local
+userPassword: bobpass
