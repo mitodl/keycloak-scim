@@ -83,10 +83,14 @@ public class ScimEventListenerProvider implements EventListenerProvider {
                 }
             }
             if (event.getOperationType() == OperationType.DELETE) {
-                var user = getUser(userId);
-                if (user.isEmailVerified()) {
-                    dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.delete(UserAdapter.class, userId));
-                }
+                // Admin events fire post-commit, so getUser(userId) returns null
+                // here and dereferencing it would NPE. Skip the lookup: if the
+                // user was ever synced, a ScimResource mapping exists and
+                // ScimClient.delete will propagate; if not, delete short-circuits
+                // on NoResultException. Either way the emailVerified gate is
+                // redundant at delete time — the existence of the mapping IS
+                // the signal that the user was ever propagated.
+                dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.delete(UserAdapter.class, userId));
             }
         }
         if (event.getResourceType() == ResourceType.GROUP) {

@@ -27,8 +27,14 @@ LDAP or Keycloak directly.
   `triggerChangedUsersSync` → PUT via the `isCreate=false` path), 3 (full
   sync → one POST per user, no duplicates), and 5 (fail-open on SCIM sink
   failure). Also covers the admin-REST event-listener path end-to-end:
-  admin create → POST, admin update → PUT, and `username-source=email`
-  emitting the email as the SCIM userName.
+  admin create → POST, admin update → PUT, admin delete → DELETE, and
+  `username-source=email` emitting the email as the SCIM userName.
+- Fixed a pre-existing NPE in `ScimEventListenerProvider`'s DELETE
+  handler: it was calling `getUser(userId)` post-commit (after the user
+  had already been deleted), then dereferencing `user.isEmailVerified()`.
+  Now uses `event.getUserId()` directly. The mapping table is authoritative
+  for whether a user was ever propagated; the `emailVerified` gate at
+  delete time was redundant.
 
 **Deferred / open**
 - Scenario 4 (deletion reconciliation). **Empirically confirmed as a gap
@@ -40,13 +46,6 @@ LDAP or Keycloak directly.
   strategy that deletes local users missing from LDAP, or an additional
   hook in our mapper. The test pins the current behavior and will turn
   red when the gap is closed.
-- Admin DELETE does not propagate to SCIM. Pre-existing bug in mitodl's
-  `ScimEventListenerProvider`: the DELETE handler does
-  `getUser(event.getUserId())` which returns null for a user that has
-  already been deleted, then dereferences `user.isEmailVerified()`, NPEs,
-  and the exception is swallowed by `ScimDispatcher.runOne`. Fix is to
-  use `event.getUserId()` directly and drop the post-delete user fetch.
-  Pinned by `adminDeleteGapIsDocumented`.
 - Opt-in filter for which users flow outbound to SCIM. mitodl already
   supports an opt-OUT via the `scim-skip=true` user attribute (checked in
   `UserAdapter.apply(UserModel)`). An opt-IN variant (e.g. only users

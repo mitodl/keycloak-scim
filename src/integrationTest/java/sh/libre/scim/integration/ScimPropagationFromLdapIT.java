@@ -330,15 +330,11 @@ class ScimPropagationFromLdapIT {
     }
 
     @Test
-    void adminDeleteGapIsDocumented() {
-        // Mitodl's ScimEventListenerProvider has a NPE risk in the DELETE path:
-        //   var user = getUser(userId);  // null when user is already deleted
-        //   if (user.isEmailVerified()) { ... }
-        // The admin event fires after the commit, so getUser() returns null and
-        // the listener swallows an NPE before ever calling ScimClient.delete.
-        // This test pins current behavior: 0 SCIM DELETEs after admin delete.
-        // When the gap is closed (listener uses event.getUserId() instead of
-        // re-fetching, or event handler becomes null-safe), this turns red.
+    void adminDeleteOfScimBackedUserFiresScimDelete() {
+        // Previously pinned as a gap (adminDeleteGapIsDocumented) because the
+        // listener called getUser(userId) post-commit, got null, and NPEd before
+        // reaching ScimClient.delete. Now closed: the DELETE handler uses
+        // event.getUserId() directly and no longer re-fetches.
         stubScimCreateOk();
         stubScimDeleteOk();
         var r = newRealmWithScimAndLdap();
@@ -349,14 +345,13 @@ class ScimPropagationFromLdapIT {
 
         r.realm.users().get(userId).remove();
 
-        sleepQuietly(3);
-        int deletes = wireMock.countRequestsMatching(
-            deleteRequestedFor(urlPathMatching("/Users/.*")).build()
-        ).getCount();
-        assertEquals(0, deletes,
-            "gap documented: admin DELETE does not propagate to SCIM because the "
-            + "event listener NPEs on getUser() after the user is gone. If this "
-            + "fails with deletes > 0, the listener has been fixed — invert.");
+        await().atMost(20, SECONDS).untilAsserted(() -> {
+            int deletes = wireMock.countRequestsMatching(
+                deleteRequestedFor(urlPathMatching("/Users/.*")).build()
+            ).getCount();
+            assertTrue(deletes >= 1,
+                "expected at least one SCIM DELETE after admin user delete, got " + deletes);
+        });
     }
 
     @Test
