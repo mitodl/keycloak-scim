@@ -47,11 +47,21 @@ LDAP or Keycloak directly.
   and the exception is swallowed by `ScimDispatcher.runOne`. Fix is to
   use `event.getUserId()` directly and drop the post-delete user fetch.
   Pinned by `adminDeleteGapIsDocumented`.
-- Role-gating parity with scim-for-keycloak's `scim-managed` realm role as
-  an opt-in filter.
-- Check whether scim-for-keycloak's commercial build already hooks
-  `LDAPStorageMapper`; if so, mitodl deployments that standardize on it
-  don't need this work.
+- Opt-in filter for which users flow outbound to SCIM. mitodl already
+  supports an opt-OUT via the `scim-skip=true` user attribute (checked in
+  `UserAdapter.apply(UserModel)`). An opt-IN variant (e.g. only users
+  carrying a specific role or attribute propagate) would be a new feature,
+  not parity with anything — scim-for-keycloak does not actually implement
+  per-user outbound filtering (its `scim-admin` / `view-realm` roles only
+  gate admin-console access to SCIM configuration).
+- Alternative-architecture comparison. scim-for-keycloak covers the
+  LDAP-federation case too, but via a different mechanism: a Hibernate
+  `Integrator` that listens on JPA lifecycle events plus a wrapping
+  `DatastoreProvider`. It catches every user/group write at the persistence
+  layer regardless of code path — no `LDAPStorageMapper` or
+  `EventListenerProvider` needed. Tradeoff: it depends on Keycloak's
+  internal persistence (higher upgrade risk) in exchange for completeness.
+  See the "Related work" section below.
 - Upstream acceptance: open a PR against `mitodl/keycloak-scim` to avoid
   maintaining a fork across Keycloak version upgrades.
 
@@ -281,19 +291,75 @@ and the new mapper attached. Then exercise:
 
 ## Open questions
 
-- **Does scim-for-keycloak's commercial build hook `LDAPStorageMapper`?** If yes, this
-  whole doc is moot for deployments that standardize on scim-for-keycloak; the plugin
-  already does it. Ask their support: *"Does outbound SCIM fire when users are imported
-  by Keycloak's LDAP User Federation, across lazy/periodic/explicit triggers?"*
+- **Does scim-for-keycloak hook `LDAPStorageMapper`?** Answered: **no.**
+  Inspection of its `META-INF/services` registrations shows neither
+  `LDAPStorageMapperFactory` nor `EventListenerProviderFactory`. It
+  instead registers `org.hibernate.integrator.spi.Integrator`
+  (`ScimListenerIntegrator`) and wraps
+  `org.keycloak.storage.DatastoreProviderFactory`
+  (`ScimClientDatastoreProviderFactory`). That stack catches every
+  user/group write through JPA — LDAP imports included, because the
+  federation's `session.users().addUser(...)` ultimately `em.persist`s a
+  user entity which Hibernate notifies their listener about. This
+  matches the developer's public description of their plugin as
+  "triggered by user changes that are processed through Keycloak in a
+  way that produces the corresponding user update/create handling
+  inside the plugin" — state-change-driven rather than SPI-event-driven.
 - **Upstream acceptance.** If we build this, is mitodl interested in taking the PR?
   Worth asking before forking — maintaining a fork for something this central is
   expensive across Keycloak version upgrades.
 - **Keycloak version compatibility.** `LDAPStorageMapper` has had signature changes
   across Keycloak majors. Pin the target version range explicitly in the PR.
-- **Role-gating parity with scim-for-keycloak.** scim-for-keycloak uses a
-  `scim-managed` realm role as an opt-in filter for which users participate in SCIM.
-  If we want the same safety net in mitodl, the mapper should check for the role
-  before emitting. Decide whether to implement that here or leave it for a follow-up.
+- **Opt-in filter for outbound SCIM.** An earlier draft of this doc
+  referenced a `scim-managed` realm role from scim-for-keycloak; that role
+  does not exist. scim-for-keycloak's `scim-admin` and `view-realm` roles
+  only gate admin-console access to SCIM configuration, and its README
+  explicitly notes that outbound user filtering is not implemented at the
+  database level. mitodl today has an opt-OUT via the `scim-skip=true`
+  user attribute (see `UserAdapter.apply(UserModel)`). If we want opt-IN
+  filtering (only users carrying a specific role or attribute propagate),
+  it's a new feature — design it on its own terms rather than as parity.
+
+## Related work: how scim-for-keycloak solves the same problem
+
+scim-for-keycloak (Captain-P-Goldfish) covers LDAP-federated users
+without implementing `LDAPStorageMapper`. Its `META-INF/services`
+registrations show the actual mechanism:
+
+- `org.hibernate.integrator.spi.Integrator` → `ScimListenerIntegrator`:
+  a Hibernate integrator that attaches JPA pre/post-insert/update/delete
+  listeners directly to the `SessionFactory`. Every user/group row
+  written through JPA notifies the listener, regardless of what Keycloak
+  code path (admin REST, federation lazy import, periodic sync,
+  self-service) caused the write.
+- `org.keycloak.storage.DatastoreProviderFactory` →
+  `ScimClientDatastoreProviderFactory`: a wrapping `DatastoreProvider`
+  that intercepts storage-layer reads/writes under the umbrella SPI
+  introduced around Keycloak 21.
+- `org.keycloak.services.resource.RealmResourceProviderFactory` →
+  `ScimEndpointProviderFactory`: the *inbound* SCIM server endpoints
+  (unrelated to outbound propagation).
+
+Conspicuously absent: no `LDAPStorageMapperFactory`, no
+`EventListenerProviderFactory`.
+
+### Tradeoff vs. this plugin's approach
+
+|  | scim-for-keycloak | this plugin |
+| --- | --- | --- |
+| Hook point | JPA lifecycle + Datastore wrapper | `LDAPStorageMapper` + `EventListenerProvider` |
+| Completeness | every JPA write, any code path | only paths covered by the hooks we implement |
+| SPI stability | depends on Keycloak's internal persistence layout | uses documented (if "internal") SPIs |
+| Upgrade risk | higher — internal implementation can shift | lower — SPI contracts are relatively stable |
+| Causality | harder to reason about (any write triggers something) | explicit (specific hook → specific action) |
+| Role-based filtering | not implemented (per their README) | `scim-skip=true` attribute opt-out today |
+
+Neither approach is strictly better. The JPA-integrator approach is
+more defensive against Keycloak evolving its SPI surface; the
+SPI-hook approach is more defensive against Keycloak evolving its
+persistence layer. mitodl's existing investment in
+`EventListenerProvider` makes extending to `LDAPStorageMapper` the
+smaller delta.
 
 ## References
 
