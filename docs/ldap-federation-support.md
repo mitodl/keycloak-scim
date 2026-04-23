@@ -23,16 +23,12 @@ LDAP or Keycloak directly.
   duplicate SCIM resources.
 - Test harness: JUnit 5 + Mockito unit tests plus Testcontainers-driven
   integration tests (Keycloak + osixia/openldap + embedded WireMock SCIM sink).
-  Covers scenario 1 (lazy import → POST), 3 (full sync → one POST per user,
-  no duplicates), and 5 (fail-open on SCIM sink failure).
+  Covers scenarios 1 (lazy import → POST), 2 (modify in LDAP +
+  `triggerChangedUsersSync` → PUT via the `isCreate=false` path), 3 (full
+  sync → one POST per user, no duplicates), and 5 (fail-open on SCIM sink
+  failure).
 
 **Deferred / open**
-
-- Scenario 2 (modify in LDAP → `triggerChangedUsersSync` → SCIM PATCH on the
-  `isCreate=false` path). Keycloak 25's sync doesn't reliably fire
-  `onImportUserFromLDAP` with `isCreate=false` for already-imported users;
-  needs investigation into `LDAPStorageProvider.importLDAPUser`'s handling
-  of existing local users.
 - Scenario 4 (deletion reconciliation). **Empirically confirmed as a gap
   on Keycloak 25.0.6** (see `ldapDeletionGapIsDocumented` in
   `ScimPropagationFromLdapIT`): removing a user from LDAP and running

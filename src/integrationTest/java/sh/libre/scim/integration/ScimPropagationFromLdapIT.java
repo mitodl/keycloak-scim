@@ -33,6 +33,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.put;
+import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
@@ -158,6 +161,48 @@ class ScimPropagationFromLdapIT {
     }
 
     @Test
+    void ldapModificationTriggersScimPutViaChangedUsersSync() throws Exception {
+        // Design-doc scenario 2: modify a user in LDAP, run triggerChangedUsersSync,
+        // expect a SCIM PUT via the isCreate=false code path.
+        stubScimCreateOk();
+        stubScimUpdateOk();
+        var r = newRealmWithScimAndLdap();
+
+        // Initial import: POST path.
+        r.realm.users().search("alice", 0, 10);
+        awaitPostFor("alice");
+
+        try {
+            // Bump alice's modifyTimestamp so changedUsersSync picks her up.
+            modifyLdapAttribute("uid=alice,ou=users,dc=test,dc=local", "sn", "Anderson-Modified");
+
+            r.realm.userStorage().syncUsers(r.ldapId, "triggerChangedUsersSync");
+
+            try {
+                await().atMost(20, SECONDS).untilAsserted(() -> {
+                    int puts = wireMock.countRequestsMatching(
+                        putRequestedFor(urlPathMatching("/Users/.*")).build()
+                    ).getCount();
+                    assertTrue(puts >= 1,
+                        "expected at least one SCIM PUT after LDAP modify + changedUsersSync, got " + puts);
+                });
+            } catch (Throwable t) {
+                System.out.println("=== Keycloak mapper log lines ===");
+                keycloak.getLogs().lines()
+                    .filter(l -> l.contains("onImportUserFromLDAP")
+                        || l.contains("ScimLdapStorageMapper")
+                        || l.contains("ScimClient")
+                        || l.contains("ScimDispatcher"))
+                    .forEach(System.out::println);
+                throw t;
+            }
+        } finally {
+            // Restore alice's sn so later tests see the original state.
+            modifyLdapAttribute("uid=alice,ou=users,dc=test,dc=local", "sn", "Anderson");
+        }
+    }
+
+    @Test
     void ldapDeletionGapIsDocumented() throws Exception {
         // Design-doc scenario 4. Empirically verified on Keycloak 25.0.6:
         // when a user is removed from LDAP and triggerFullSync is run,
@@ -207,14 +252,7 @@ class ScimPropagationFromLdapIT {
     }
 
     private void reAddAlice() throws NamingException {
-        var env = new Hashtable<String, String>();
-        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
-        env.put(Context.PROVIDER_URL,
-            "ldap://" + openldap.getHost() + ":" + openldap.getMappedPort(389));
-        env.put(Context.SECURITY_AUTHENTICATION, "simple");
-        env.put(Context.SECURITY_PRINCIPAL, "cn=admin,dc=test,dc=local");
-        env.put(Context.SECURITY_CREDENTIALS, "adminpassword");
-        var ctx = new InitialDirContext(env);
+        var ctx = new InitialDirContext(newLdapEnv());
         try {
             var attrs = new javax.naming.directory.BasicAttributes();
             var oc = new javax.naming.directory.BasicAttribute("objectClass");
@@ -367,14 +405,21 @@ class ScimPropagationFromLdapIT {
     }
 
     private void stubScimCreateOk() {
+        // UserAdapter.apply(User) calls .get() on id/userName/displayName/active,
+        // so all four must be present or the adapter throws and the mapping
+        // never gets persisted.
+        // The id must fit in the SCIM_RESOURCE.EXTERNAL_ID column (VARCHAR(36));
+        // a bare UUID is exactly 36 characters.
         wireMock.stubFor(post(urlPathEqualTo("/Users"))
             .willReturn(aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/scim+json")
                 .withBody("""
                     {
-                      "id": "ext-%s",
+                      "id": "%s",
                       "userName": "placeholder",
+                      "displayName": "placeholder",
+                      "active": true,
                       "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"]
                     }""".formatted(UUID.randomUUID()))));
     }
@@ -382,6 +427,19 @@ class ScimPropagationFromLdapIT {
     private void stubScimDeleteOk() {
         wireMock.stubFor(delete(urlPathMatching("/Users/.*"))
             .willReturn(aResponse().withStatus(204)));
+    }
+
+    private void stubScimUpdateOk() {
+        wireMock.stubFor(put(urlMatching("/Users/.*"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/scim+json")
+                .withBody("""
+                    {
+                      "id": "ext-updated",
+                      "userName": "placeholder",
+                      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"]
+                    }""")));
     }
 
     private void enableScimEventListener(RealmResource realm) {
@@ -397,7 +455,20 @@ class ScimPropagationFromLdapIT {
         realm.update(rep);
     }
 
-    private void deleteLdapEntry(String dn) throws NamingException {
+    private void modifyLdapAttribute(String dn, String attr, String value) throws NamingException {
+        var env = newLdapEnv();
+        var ctx = new InitialDirContext(env);
+        try {
+            var mod = new javax.naming.directory.ModificationItem(
+                javax.naming.directory.DirContext.REPLACE_ATTRIBUTE,
+                new javax.naming.directory.BasicAttribute(attr, value));
+            ctx.modifyAttributes(dn, new javax.naming.directory.ModificationItem[]{mod});
+        } finally {
+            ctx.close();
+        }
+    }
+
+    private Hashtable<String, String> newLdapEnv() {
         var env = new Hashtable<String, String>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL,
@@ -405,7 +476,11 @@ class ScimPropagationFromLdapIT {
         env.put(Context.SECURITY_AUTHENTICATION, "simple");
         env.put(Context.SECURITY_PRINCIPAL, "cn=admin,dc=test,dc=local");
         env.put(Context.SECURITY_CREDENTIALS, "adminpassword");
-        var ctx = new InitialDirContext(env);
+        return env;
+    }
+
+    private void deleteLdapEntry(String dn) throws NamingException {
+        var ctx = new InitialDirContext(newLdapEnv());
         try {
             ctx.destroySubcontext(dn);
         } finally {

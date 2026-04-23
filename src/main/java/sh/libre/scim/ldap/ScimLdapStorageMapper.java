@@ -1,5 +1,6 @@
 package sh.libre.scim.ldap;
 
+import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
@@ -19,6 +20,8 @@ import sh.libre.scim.core.UserAdapter;
 
 public class ScimLdapStorageMapper implements LDAPStorageMapper {
 
+    private static final Logger LOGGER = Logger.getLogger(ScimLdapStorageMapper.class);
+
     private final ScimDispatcher dispatcher;
 
     public ScimLdapStorageMapper(ScimDispatcher dispatcher) {
@@ -27,6 +30,7 @@ public class ScimLdapStorageMapper implements LDAPStorageMapper {
 
     @Override
     public void onImportUserFromLDAP(LDAPObject ldapUser, UserModel user, RealmModel realm, boolean isCreate) {
+        LOGGER.infof("onImportUserFromLDAP user=%s isCreate=%s", user.getUsername(), isCreate);
         if (isCreate) {
             dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.create(UserAdapter.class, user));
         } else {
