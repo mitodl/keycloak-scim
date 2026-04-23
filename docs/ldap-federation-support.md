@@ -33,11 +33,15 @@ LDAP or Keycloak directly.
   `onImportUserFromLDAP` with `isCreate=false` for already-imported users;
   needs investigation into `LDAPStorageProvider.importLDAPUser`'s handling
   of existing local users.
-- Scenario 4 (deletion reconciliation). No `onDelete` hook exists on
-  `LDAPStorageMapper`. Need to empirically verify whether
-  `LDAPStorageProvider.removeNonExistentUsers` fires an admin `USER/DELETE`
-  event that the existing `ScimEventListenerProvider` catches. If not,
-  implement a diff-based reconciler.
+- Scenario 4 (deletion reconciliation). **Empirically confirmed as a gap
+  on Keycloak 25.0.6** (see `ldapDeletionGapIsDocumented` in
+  `ScimPropagationFromLdapIT`): removing a user from LDAP and running
+  `triggerFullSync` does not remove the local `UserModel` and does not
+  fire an admin `USER/DELETE` event, so no SCIM DELETE reaches the sink.
+  Closing this requires either a diff-based reconciler, a custom sync
+  strategy that deletes local users missing from LDAP, or an additional
+  hook in our mapper. The test pins the current behavior and will turn
+  red when the gap is closed.
 - End-to-end coverage of the admin-REST event-listener path (admin create →
   POST, admin update → PUT, `username-source=email` with a fully-populated
   `UserModel`). Blocked on mapper ordering during the initial LDAP import:

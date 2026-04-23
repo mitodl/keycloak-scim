@@ -17,16 +17,24 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 
+import javax.naming.Context;
+import javax.naming.NamingException;
+import javax.naming.directory.InitialDirContext;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
+import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
@@ -147,6 +155,84 @@ class ScimPropagationFromLdapIT {
 
         awaitPostFor("alice");
         awaitPostFor("bob");
+    }
+
+    @Test
+    void ldapDeletionGapIsDocumented() throws Exception {
+        // Design-doc scenario 4. Empirically verified on Keycloak 25.0.6:
+        // when a user is removed from LDAP and triggerFullSync is run,
+        //   * Keycloak's LDAP federation does not automatically delete the
+        //     local UserModel (the default sync strategy imports but does
+        //     not reconcile removals), and
+        //   * consequently no admin USER/DELETE event reaches mitodl's
+        //     existing ScimEventListenerProvider, so no SCIM DELETE hits
+        //     the sink.
+        //
+        // Closing the gap requires either a diff-based reconciler, a
+        // custom sync strategy that deletes local users missing from
+        // LDAP, or an LDAPStorageMapper-level hook. Until then, deployments
+        // that expect LDAP deletions to propagate to SCIM must rely on an
+        // external reconciliation loop.
+        //
+        // This test pins the current behavior: 0 SCIM DELETEs. When the
+        // gap is closed and deletes start reaching the sink, this test
+        // will turn red — at that point flip the assertion to a positive
+        // one and update the Status section of the design doc.
+        stubScimCreateOk();
+        stubScimDeleteOk();
+        var r = newRealmWithScimAndLdap();
+        enableScimEventListener(r.realm);
+
+        r.realm.users().search("alice", 0, 10);
+        awaitPostFor("alice");
+
+        deleteLdapEntry("uid=alice,ou=users,dc=test,dc=local");
+        try {
+            r.realm.userStorage().syncUsers(r.ldapId, "triggerFullSync");
+
+            // Give any async propagation a window, then assert the gap.
+            sleepQuietly(3);
+            int deletes = wireMock.countRequestsMatching(
+                deleteRequestedFor(urlPathMatching("/Users/.*")).build()
+            ).getCount();
+            assertEquals(0, deletes,
+                "gap documented: LDAP-triggered deletion does not propagate to SCIM. "
+                + "If this fails with deletes > 0, the reconciliation gap has been closed — "
+                + "invert the assertion and update docs/ldap-federation-support.md Status.");
+        } finally {
+            // Restore alice so later tests still find her in LDAP. The OpenLDAP
+            // container is shared across the class; deletions persist.
+            reAddAlice();
+        }
+    }
+
+    private void reAddAlice() throws NamingException {
+        var env = new Hashtable<String, String>();
+        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        env.put(Context.PROVIDER_URL,
+            "ldap://" + openldap.getHost() + ":" + openldap.getMappedPort(389));
+        env.put(Context.SECURITY_AUTHENTICATION, "simple");
+        env.put(Context.SECURITY_PRINCIPAL, "cn=admin,dc=test,dc=local");
+        env.put(Context.SECURITY_CREDENTIALS, "adminpassword");
+        var ctx = new InitialDirContext(env);
+        try {
+            var attrs = new javax.naming.directory.BasicAttributes();
+            var oc = new javax.naming.directory.BasicAttribute("objectClass");
+            oc.add("inetOrgPerson");
+            oc.add("organizationalPerson");
+            oc.add("person");
+            oc.add("top");
+            attrs.put(oc);
+            attrs.put("cn", "Alice Anderson");
+            attrs.put("sn", "Anderson");
+            attrs.put("givenName", "Alice");
+            attrs.put("uid", "alice");
+            attrs.put("mail", "alice@test.local");
+            attrs.put("userPassword", "alicepass");
+            ctx.createSubcontext("uid=alice,ou=users,dc=test,dc=local", attrs);
+        } finally {
+            ctx.close();
+        }
     }
 
     @Test
@@ -291,6 +377,40 @@ class ScimPropagationFromLdapIT {
                       "userName": "placeholder",
                       "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"]
                     }""".formatted(UUID.randomUUID()))));
+    }
+
+    private void stubScimDeleteOk() {
+        wireMock.stubFor(delete(urlPathMatching("/Users/.*"))
+            .willReturn(aResponse().withStatus(204)));
+    }
+
+    private void enableScimEventListener(RealmResource realm) {
+        var rep = realm.toRepresentation();
+        var listeners = new ArrayList<String>();
+        if (rep.getEventsListeners() != null) {
+            listeners.addAll(rep.getEventsListeners());
+        }
+        if (!listeners.contains("scim")) {
+            listeners.add("scim");
+        }
+        rep.setEventsListeners(listeners);
+        realm.update(rep);
+    }
+
+    private void deleteLdapEntry(String dn) throws NamingException {
+        var env = new Hashtable<String, String>();
+        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        env.put(Context.PROVIDER_URL,
+            "ldap://" + openldap.getHost() + ":" + openldap.getMappedPort(389));
+        env.put(Context.SECURITY_AUTHENTICATION, "simple");
+        env.put(Context.SECURITY_PRINCIPAL, "cn=admin,dc=test,dc=local");
+        env.put(Context.SECURITY_CREDENTIALS, "adminpassword");
+        var ctx = new InitialDirContext(env);
+        try {
+            ctx.destroySubcontext(dn);
+        } finally {
+            ctx.close();
+        }
     }
 
     private void awaitPostFor(String userName) {
