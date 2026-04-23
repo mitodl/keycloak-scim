@@ -26,7 +26,9 @@ LDAP or Keycloak directly.
   Covers scenarios 1 (lazy import → POST), 2 (modify in LDAP +
   `triggerChangedUsersSync` → PUT via the `isCreate=false` path), 3 (full
   sync → one POST per user, no duplicates), and 5 (fail-open on SCIM sink
-  failure).
+  failure). Also covers the admin-REST event-listener path end-to-end:
+  admin create → POST, admin update → PUT, and `username-source=email`
+  emitting the email as the SCIM userName.
 
 **Deferred / open**
 - Scenario 4 (deletion reconciliation). **Empirically confirmed as a gap
@@ -38,12 +40,13 @@ LDAP or Keycloak directly.
   strategy that deletes local users missing from LDAP, or an additional
   hook in our mapper. The test pins the current behavior and will turn
   red when the gap is closed.
-- End-to-end coverage of the admin-REST event-listener path (admin create →
-  POST, admin update → PUT, `username-source=email` with a fully-populated
-  `UserModel`). Blocked on mapper ordering during the initial LDAP import:
-  our mapper fires in the same iteration as the built-in user-attribute
-  mappers, so `email`/`firstName`/`lastName` are not yet set on the
-  `UserModel` when `onImportUserFromLDAP` reaches us.
+- Admin DELETE does not propagate to SCIM. Pre-existing bug in mitodl's
+  `ScimEventListenerProvider`: the DELETE handler does
+  `getUser(event.getUserId())` which returns null for a user that has
+  already been deleted, then dereferences `user.isEmailVerified()`, NPEs,
+  and the exception is swallowed by `ScimDispatcher.runOne`. Fix is to
+  use `event.getUserId()` directly and drop the post-delete user fetch.
+  Pinned by `adminDeleteGapIsDocumented`.
 - Role-gating parity with scim-for-keycloak's `scim-managed` realm role as
   an opt-in filter.
 - Check whether scim-for-keycloak's commercial build already hooks

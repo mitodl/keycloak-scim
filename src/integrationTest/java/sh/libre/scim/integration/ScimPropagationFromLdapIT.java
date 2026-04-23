@@ -12,6 +12,7 @@ import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.representations.idm.ComponentRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
@@ -274,6 +275,91 @@ class ScimPropagationFromLdapIT {
     }
 
     @Test
+    void adminCreatedUserFiresScimPostViaEventListener() {
+        stubScimCreateOk();
+        var r = newRealmWithScimAndLdap();
+        enableScimEventListener(r.realm);
+
+        createAdminUser(r.realm, "charlie", "charlie@test.local");
+
+        awaitPostFor("charlie");
+    }
+
+    @Test
+    void adminUpdateOfUserFiresScimReplaceViaEventListener() {
+        stubScimCreateOk();
+        stubScimUpdateOk();
+        var r = newRealmWithScimAndLdap();
+        enableScimEventListener(r.realm);
+
+        String userId = createAdminUser(r.realm, "dana", "dana@test.local");
+        awaitPostFor("dana");
+
+        var updated = r.realm.users().get(userId).toRepresentation();
+        updated.setLastName("Updated");
+        r.realm.users().get(userId).update(updated);
+
+        await().atMost(20, SECONDS).untilAsserted(() -> {
+            int puts = wireMock.countRequestsMatching(
+                putRequestedFor(urlPathMatching("/Users/.*")).build()
+            ).getCount();
+            assertTrue(puts >= 1, "expected SCIM PUT after admin update, got " + puts);
+        });
+    }
+
+    @Test
+    void usernameSourceEmailEmitsEmailAsScimUserName() {
+        stubScimCreateOk();
+        var r = newRealmWithScimAndLdapAndConfig(cfg ->
+            cfg.putSingle("username-source", "email")
+        );
+        enableScimEventListener(r.realm);
+
+        createAdminUser(r.realm, "erin", "erin@test.local");
+
+        await().atMost(20, SECONDS).untilAsserted(() -> {
+            var posts = wireMock.getAllServeEvents().stream()
+                .filter(e -> e.getRequest().getUrl().startsWith("/Users")
+                    && "POST".equals(e.getRequest().getMethod().getName()))
+                .toList();
+            assertTrue(posts.size() >= 1, "expected a SCIM POST");
+            String body = posts.get(0).getRequest().getBodyAsString();
+            assertTrue(body.contains("\"userName\":\"erin@test.local\""),
+                "userName must be email with username-source=email, body was: " + body);
+        });
+    }
+
+    @Test
+    void adminDeleteGapIsDocumented() {
+        // Mitodl's ScimEventListenerProvider has a NPE risk in the DELETE path:
+        //   var user = getUser(userId);  // null when user is already deleted
+        //   if (user.isEmailVerified()) { ... }
+        // The admin event fires after the commit, so getUser() returns null and
+        // the listener swallows an NPE before ever calling ScimClient.delete.
+        // This test pins current behavior: 0 SCIM DELETEs after admin delete.
+        // When the gap is closed (listener uses event.getUserId() instead of
+        // re-fetching, or event handler becomes null-safe), this turns red.
+        stubScimCreateOk();
+        stubScimDeleteOk();
+        var r = newRealmWithScimAndLdap();
+        enableScimEventListener(r.realm);
+
+        String userId = createAdminUser(r.realm, "frank", "frank@test.local");
+        awaitPostFor("frank");
+
+        r.realm.users().get(userId).remove();
+
+        sleepQuietly(3);
+        int deletes = wireMock.countRequestsMatching(
+            deleteRequestedFor(urlPathMatching("/Users/.*")).build()
+        ).getCount();
+        assertEquals(0, deletes,
+            "gap documented: admin DELETE does not propagate to SCIM because the "
+            + "event listener NPEs on getUser() after the user is gone. If this "
+            + "fails with deletes > 0, the listener has been fixed — invert.");
+    }
+
+    @Test
     void scimSinkFailureDoesNotBlockLdapImport() {
         // No POST stub — WireMock will return 404 for /Users.
         // ScimDispatcher.runOne catches exceptions from the SCIM call, so the
@@ -427,6 +513,23 @@ class ScimPropagationFromLdapIT {
     private void stubScimDeleteOk() {
         wireMock.stubFor(delete(urlPathMatching("/Users/.*"))
             .willReturn(aResponse().withStatus(204)));
+    }
+
+    private String createAdminUser(RealmResource realm, String username, String email) {
+        var user = new UserRepresentation();
+        user.setUsername(username);
+        user.setEmail(email);
+        // ScimEventListenerProvider ignores events for users with unverified emails.
+        user.setEmailVerified(true);
+        user.setEnabled(true);
+        try (Response resp = realm.users().create(user)) {
+            if (resp.getStatus() >= 400) {
+                throw new IllegalStateException("admin user create for " + username
+                    + " failed: " + resp.getStatus());
+            }
+            String path = resp.getLocation().getPath();
+            return path.substring(path.lastIndexOf('/') + 1);
+        }
     }
 
     private void stubScimUpdateOk() {
