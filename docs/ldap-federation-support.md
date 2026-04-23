@@ -5,6 +5,53 @@ emit outbound SCIM events for users that Keycloak imports via its LDAP User Fede
 so OD360's SCIM server sees third-party-managed users without OD360 having to poll
 LDAP or Keycloak directly.
 
+## Status (2026-04-23)
+
+**Shipped**
+
+- `sh.libre.scim.ldap.ScimLdapStorageMapper` and `ScimLdapStorageMapperFactory`
+  (id `scim-ldap-sync`), with `META-INF/services` registration.
+- `keycloak-ldap-federation` as a `compileOnly` dep via the Gradle version catalog;
+  targets Keycloak 25.0.6 minimum, binary-compatible with 26.x via a single artifact.
+- Shared-service routing: the mapper delegates to the existing `ScimDispatcher`
+  so the event-listener path and the federation-import path fan out to the same
+  configured SCIM providers.
+- Fail-open failure semantics: SCIM errors are caught in `ScimDispatcher.runOne`
+  and do not abort the Keycloak-side LDAP import.
+- Idempotency: `ScimClient.create` short-circuits when a `ScimResource` mapping
+  already exists locally, so lazy-imports and repeated syncs do not produce
+  duplicate SCIM resources.
+- Test harness: JUnit 5 + Mockito unit tests plus Testcontainers-driven
+  integration tests (Keycloak + osixia/openldap + embedded WireMock SCIM sink).
+  Covers scenario 1 (lazy import → POST), 3 (full sync → one POST per user,
+  no duplicates), and 5 (fail-open on SCIM sink failure).
+
+**Deferred / open**
+
+- Scenario 2 (modify in LDAP → `triggerChangedUsersSync` → SCIM PATCH on the
+  `isCreate=false` path). Keycloak 25's sync doesn't reliably fire
+  `onImportUserFromLDAP` with `isCreate=false` for already-imported users;
+  needs investigation into `LDAPStorageProvider.importLDAPUser`'s handling
+  of existing local users.
+- Scenario 4 (deletion reconciliation). No `onDelete` hook exists on
+  `LDAPStorageMapper`. Need to empirically verify whether
+  `LDAPStorageProvider.removeNonExistentUsers` fires an admin `USER/DELETE`
+  event that the existing `ScimEventListenerProvider` catches. If not,
+  implement a diff-based reconciler.
+- End-to-end coverage of the admin-REST event-listener path (admin create →
+  POST, admin update → PUT, `username-source=email` with a fully-populated
+  `UserModel`). Blocked on mapper ordering during the initial LDAP import:
+  our mapper fires in the same iteration as the built-in user-attribute
+  mappers, so `email`/`firstName`/`lastName` are not yet set on the
+  `UserModel` when `onImportUserFromLDAP` reaches us.
+- Role-gating parity with scim-for-keycloak's `scim-managed` realm role as
+  an opt-in filter.
+- Check whether scim-for-keycloak's commercial build already hooks
+  `LDAPStorageMapper`; if so, mitodl deployments that standardize on it
+  don't need this work.
+- Upstream acceptance: open a PR against `mitodl/keycloak-scim` to avoid
+  maintaining a fork across Keycloak version upgrades.
+
 ## Problem
 
 mitodl's `ScimEventListenerProvider` (in `src/main/java/sh/libre/scim/event/`) subscribes
