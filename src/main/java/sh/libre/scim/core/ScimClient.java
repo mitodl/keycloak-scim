@@ -256,7 +256,9 @@ public class ScimClient {
         LOGGER.info("Import");
         try {
             var adapter = getAdapter(aClass);
-            ServerResponse<ListResponse<S>> response  = scimRequestBuilder.list("url", adapter.getResourceClass()).get().sendRequest();
+            String endpointPath = "/" + adapter.getSCIMEndpoint();
+            LOGGER.infof("Importing resources from %s", endpointPath);
+            ServerResponse<ListResponse<S>> response = scimRequestBuilder.list(endpointPath, adapter.getResourceClass()).get().sendRequest();
             ListResponse<S> resourceTypeListResponse = response.getResource();
 
             for (var resource : resourceTypeListResponse.getListedResources()) {
@@ -311,6 +313,7 @@ public class ScimClient {
                 }
             }
         } catch (ResponseException e) {
+            LOGGER.error("Error during import: " + e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }

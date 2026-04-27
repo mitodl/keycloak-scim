@@ -17,7 +17,6 @@ import de.captaingoldfish.scim.sdk.common.resources.complex.Name;
 import de.captaingoldfish.scim.sdk.common.resources.multicomplex.PersonRole;
 import de.captaingoldfish.scim.sdk.common.resources.complex.Meta;
 
-
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
@@ -164,7 +163,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
         var emails = new ArrayList<Email>();
         if (email != null) {
             emails.add(
-                Email.builder().value(getEmail()).build());
+                    Email.builder().value(getEmail()).build());
         }
         user.setEmails(emails);
         user.setActive(active);
@@ -172,7 +171,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
             var meta = new Meta();
             try {
                 var uri = new URI("Users/" + externalId);
-              meta.setLocation(uri.toString());
+                meta.setLocation(uri.toString());
             } catch (URISyntaxException e) {
             }
             user.setMeta(meta);
@@ -238,35 +237,37 @@ public class UserAdapter extends Adapter<UserModel, User> {
 
     @Override
     public Stream<UserModel> getResourceStream() {
-        return this.session.users().searchForUserStream(this.session.getContext().getRealm(), Map.of(UserModel.ENABLED, "true"));
+        return this.session.users().searchForUserStream(this.session.getContext().getRealm(),
+                Map.of(UserModel.ENABLED, "true"));
     }
 
     @Override
     public Boolean skipRefresh() {
         return "admin".equals(getUsername());
     }
+
     @Override
     public PatchBuilder<User> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url) {
         var emails = new ArrayList<Email>();
         if (email != null) {
             emails.add(
-                Email.builder().value(getEmail()).build());
+                    Email.builder().value(getEmail()).build());
         }
         PatchBuilder<User> patchBuilder;
         patchBuilder = scimRequestBuilder.patch(url, User.class);
         patchBuilder.addOperation()
-                      .path("active")
-                      .op(PatchOp.REPLACE)
-                      .value(active.toString())
-                      .next()
-                      .path("userName")
-                      .op(PatchOp.REPLACE)
-                      .value(username)
-                      .next()
-                      .path("displayName")
-                      .op(PatchOp.REPLACE)
-                      .value(displayName)
-                    .build();
+                .path("active")
+                .op(PatchOp.REPLACE)
+                .value(active.toString())
+                .next()
+                .path("userName")
+                .op(PatchOp.REPLACE)
+                .value(username)
+                .next()
+                .path("displayName")
+                .op(PatchOp.REPLACE)
+                .value(displayName)
+                .build();
 
         return patchBuilder;
     }
