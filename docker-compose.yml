@@ -11,8 +11,7 @@ services:
     ports:
       - 5432:5432
   keycloak:
-    image: quay.io/keycloak/keycloak:18.0.0
-    build: .
+    image: quay.io/keycloak/keycloak:25.0.6
     command: start-dev
     volumes:
       - ./build/libs/keycloak-scim-1.0-SNAPSHOT-all.jar:/opt/keycloak/providers/keycloak-scim-1.0-SNAPSHOT-all.jar

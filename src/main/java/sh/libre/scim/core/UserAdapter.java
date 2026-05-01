@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
@@ -154,7 +156,9 @@ public class UserAdapter extends Adapter<UserModel, User> {
     public User toSCIM(Boolean addMeta) {
         var user = new User();
         user.setExternalId(id);
-        user.setUserName(username);
+        var model = getModel();
+        String usernameSource = model != null ? model.get("username-source") : null;
+        user.setUserName("email".equals(usernameSource) && email != null ? email : username);
         user.setId(externalId);
         user.setDisplayName(displayName);
         Name name = new Name();
@@ -163,8 +167,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
         user.setName(name);
         var emails = new ArrayList<Email>();
         if (email != null) {
-            emails.add(
-                Email.builder().value(getEmail()).build());
+            emails.add(Email.builder().value(getEmail()).type("work").primary(true).build());
         }
         user.setEmails(emails);
         user.setActive(active);
@@ -238,7 +241,15 @@ public class UserAdapter extends Adapter<UserModel, User> {
 
     @Override
     public Stream<UserModel> getResourceStream() {
-        return this.session.users().searchForUserStream(this.session.getContext().getRealm(), Map.of(UserModel.ENABLED, "true"));
+        var filteredGroups = getFilteredGroups().collect(Collectors.toSet());
+        if (filteredGroups.isEmpty()) {
+            return session.users().searchForUserStream(realm, Map.of(UserModel.ENABLED, "true"));
+        }
+        Set<UserModel> users = new HashSet<>();
+        for (var group : filteredGroups) {
+            session.users().getGroupMembersStream(realm, group).forEach(users::add);
+        }
+        return users.stream().filter(UserModel::isEnabled);
     }
 
     @Override
@@ -249,8 +260,7 @@ public class UserAdapter extends Adapter<UserModel, User> {
     public PatchBuilder<User> toPatchBuilder(ScimRequestBuilder scimRequestBuilder, String url) {
         var emails = new ArrayList<Email>();
         if (email != null) {
-            emails.add(
-                Email.builder().value(getEmail()).build());
+            emails.add(Email.builder().value(getEmail()).type("work").primary(true).build());
         }
         PatchBuilder<User> patchBuilder;
         patchBuilder = scimRequestBuilder.patch(url, User.class);

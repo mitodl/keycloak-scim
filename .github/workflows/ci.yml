@@ -1,0 +1,56 @@
+name: CI
+
+# Runs unit tests on every PR to main and every push to a non-main
+# branch. Push-to-main is intentionally excluded — that path is owned
+# by release-please (which opens its release PR), and any failure on
+# main shows up in the release PR's CI run.
+#
+# Integration and matrix-across-Keycloak-versions arrive in a later
+# PR (the Testcontainers source set lands with the LDAP federation
+# work; the matrix lands with the 1.0.0 release prep).
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel previous runs on the same ref so a quick succession of
+  # pushes doesn't pile up.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Java 21 / Unit tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile + unit tests
+        run: ./gradlew --no-daemon test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/
+            build/test-results/
+          retention-days: 14

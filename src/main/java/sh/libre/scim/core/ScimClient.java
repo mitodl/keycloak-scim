@@ -84,9 +84,9 @@ public class ScimClient {
     protected ScimClientConfig genScimClientConfig() {
         return ScimClientConfig.builder()
         .httpHeaders(defaultHeaders)
-        .connectTimeout(5)
-        .requestTimeout(5)
-        .socketTimeout(5)
+        .connectTimeout(30)
+        .requestTimeout(30)
+        .socketTimeout(30)
         .expectedHttpResponseHeaders(expectedResponseHeaders)
         .hostnameVerifier((s, sslSession) -> true)
         .build();
@@ -184,9 +184,37 @@ public class ScimClient {
                     throw new RuntimeException(e);
                 }
             });
-            if (!response.isSuccess()){
-                LOGGER.warn(response.getResponseBody());
-                LOGGER.warn(response.getHttpStatus());
+            if (!response.isSuccess()) {
+                int statusCode = response.getHttpStatus();
+                if (statusCode == 405 && adapter.getType().equals("Group") && !this.model.get("group-patchOp", false)) {
+                    LOGGER.infof("PUT not supported (405) for group %s, falling back to PATCH", adapter.getId());
+                    response = adapter.toPatchBuilder(scimRequestBuilder, url).sendRequest();
+                }
+                if (!response.isSuccess()) {
+                    int currentStatus = response.getHttpStatus();
+                    if (currentStatus == 404 || currentStatus == 400) {
+                        LOGGER.infof("Remote resource %s not found (%d), re-creating", adapter.getId(), currentStatus);
+                        ServerResponse<S> createResponse = scimRequestBuilder
+                            .create(adapter.getResourceClass(), ("/" + adapter.getSCIMEndpoint()).formatted())
+                            .setResource(adapter.toSCIM(false))
+                            .sendRequest();
+                        if (createResponse.isSuccess()) {
+                            adapter.apply(createResponse.getResource());
+                            var existingMapping = adapter.getMapping();
+                            if (existingMapping != null) {
+                                existingMapping.setExternalId(adapter.getExternalId());
+                                getEM().merge(existingMapping);
+                            } else {
+                                adapter.saveMapping();
+                            }
+                        }
+                        response = createResponse;
+                    }
+                }
+                if (!response.isSuccess()) {
+                    LOGGER.warn(response.getResponseBody());
+                    LOGGER.warn(response.getHttpStatus());
+                }
             }
         } catch (NoResultException e) {
             LOGGER.warnf("failed to replace resource %s, scim mapping not found", adapter.getId());
@@ -256,7 +284,7 @@ public class ScimClient {
         LOGGER.info("Import");
         try {
             var adapter = getAdapter(aClass);
-            ServerResponse<ListResponse<S>> response  = scimRequestBuilder.list("url", adapter.getResourceClass()).get().sendRequest();
+            ServerResponse<ListResponse<S>> response  = scimRequestBuilder.list(scimApplicationBaseUrl + "/" + adapter.getSCIMEndpoint(), adapter.getResourceClass()).get().sendRequest();
             ListResponse<S> resourceTypeListResponse = response.getResource();
 
             for (var resource : resourceTypeListResponse.getListedResources()) {
