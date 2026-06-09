@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
+import sh.libre.scim.core.GroupAdapter;
 import sh.libre.scim.core.ScimDispatcher;
 import sh.libre.scim.core.UserAdapter;
 
@@ -55,6 +56,19 @@ public class ScimLdapStorageMapper implements LDAPStorageMapper {
                 if (u != null) client.replace(UserAdapter::new, u);
             });
         }
+
+        // Propagate the user's current group memberships. LDAP-driven
+        // membership changes never fire GROUP_MEMBERSHIP admin events, so this
+        // hook is the only signal. Additions only; idempotent, so re-asserting
+        // on every import is safe (see the design doc). Runs on SCOPE_GROUP,
+        // independent of the user dispatch above — interoperates only with
+        // components configured for both user and group propagation.
+        dispatcher.runAsync(ScimDispatcher.SCOPE_GROUP, (client, workerSession) -> {
+            var u = workerSession.users().getUserById(workerSession.getContext().getRealm(), userId);
+            if (u == null) return;
+            u.getGroupsStream().forEach(group ->
+                client.ensureGroupMembership(GroupAdapter::new, group.getId(), userId));
+        });
     }
 
     @Override
