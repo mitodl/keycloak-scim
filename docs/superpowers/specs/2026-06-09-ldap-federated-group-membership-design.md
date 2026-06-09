@@ -70,9 +70,23 @@ Extend `ScimLdapStorageMapper.onImportUserFromLDAP`. After the existing
 group memberships. No new Keycloak hook — the existing hook already
 covers all three federation trigger paths.
 
-Group IDs are captured by value (like the existing code captures
-`userId`); the worker re-fetches the user and groups in its own session
-post-commit, consistent with the existing async contract.
+Only the `userId` is captured by value (like the existing user-import
+code). The worker re-fetches the user in its own session post-commit
+and reads memberships from the committed state —
+`workerSession.users().getUserById(realm, userId).getGroupsStream()` —
+rather than relying on the hook-thread `UserModel`. This sidesteps any
+`group-ldap-mapper` execution-order question at hook time (see Spike)
+and matches the existing capture-id-by-value contract.
+
+**Same-component requirement.** `ScimResource` mappings are keyed by
+component id, so `patchGroupMembership` on a `SCOPE_GROUP` component can
+only resolve the member's external ID if the **same** component also
+ran the user `create` — i.e. the component carries both
+`propagation-user=true` and `propagation-group=true`. The user-scope
+and group-scope fan-outs interoperate only where they target a shared
+component. A group-scope-only component cannot resolve members and is
+out of scope (see Failure semantics). Make this explicit to the
+implementer: the feature targets components configured for both scopes.
 
 ### The propagation unit
 
@@ -92,6 +106,20 @@ ensureGroupMembership(groupFactory, groupId, userId):
 Step 1 is the precondition for step 2 (decision 2). Both are
 idempotent, so the every-import re-assertion (decision 3) is a no-op
 after the first time for a stable membership.
+
+**`group-patchOp=false` deployments.** Step 2's `patchGroupMembership`
+only sends a single-member delta PATCH when `group-patchOp=true`. When
+`group-patchOp=false` it falls back to a full `replace(group)` (PUT, or
+PATCH-on-405) that re-sends the entire group — which itself provisions
+the group and the membership. In that mode the explicit step-1 `create`
+is redundant with the fallback `replace`, so `ensureGroupMembership`
+should **skip step 1 when `group-patchOp=false`** and let
+`patchGroupMembership`'s `replace` fallback do the whole job. The
+Scaling discussion below (one-time full-list send, then single-member
+deltas) describes the `group-patchOp=true` path; non-patchOp
+deployments re-send the full group per membership assertion, exactly as
+they already do for admin-driven membership changes — no regression,
+but no delta benefit either. Tests must cover both modes.
 
 ### Scaling
 
