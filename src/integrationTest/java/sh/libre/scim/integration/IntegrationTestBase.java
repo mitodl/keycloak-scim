@@ -37,10 +37,12 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.delete;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.patch;
+import static com.github.tomakehurst.wiremock.client.WireMock.patchRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.put;
@@ -51,6 +53,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Shared scaffolding for end-to-end integration tests against the full stack:
@@ -459,6 +462,25 @@ public abstract class IntegrationTestBase {
             wireMock.verify(postRequestedFor(urlPathEqualTo("/Groups"))
                 .withRequestBody(matchingJsonPath("$.displayName", equalTo(displayName))))
         );
+    }
+
+    /** Current count of single-member delta add PATCHes (op=add with a members body) to /Groups/*. */
+    protected int memberAddPatchCount() {
+        return wireMock.countRequestsMatching(
+            patchRequestedFor(urlPathMatching("/Groups/.*"))
+                .withRequestBody(containing("\"op\":\"add\""))
+                .withRequestBody(containing("members"))
+                .build()
+        ).getCount();
+    }
+
+    /** Polls until WireMock has seen at least {@code atLeast} member-add PATCHes to /Groups/*. */
+    protected void awaitMemberAddPatchCount(int atLeast) {
+        await().atMost(20, SECONDS).untilAsserted(() -> {
+            int memberAdds = memberAddPatchCount();
+            assertTrue(memberAdds >= atLeast,
+                "expected at least " + atLeast + " member-add PATCH(es) to /Groups/*, got " + memberAdds);
+        });
     }
 
     protected String createGroup(RealmResource realm, String name) {
