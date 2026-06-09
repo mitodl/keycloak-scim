@@ -28,6 +28,7 @@ import io.github.resilience4j.retry.RetryRegistry;
 
 public class ScimClient {
     private static final ScimTracingBridge TRACING = ScimTracingBridge.create();
+    private static final String GROUP_PATCH_OP_KEY = "group-patchOp";
 
     final protected Logger LOGGER = Logger.getLogger(ScimClient.class);
     final protected ScimRequestBuilder scimRequestBuilder;
@@ -224,7 +225,7 @@ public class ScimClient {
                 ServerResponse<S> response = auth.sendWithAuthRefresh(() -> retry.executeSupplier(() -> {
                     try {
                         LOGGER.info(adapter.getType());
-                        if ((adapter.getType() == "Group" && this.model.get("group-patchOp", false))
+                        if ((adapter.getType() == "Group" && this.model.get(GROUP_PATCH_OP_KEY, false))
                              || (adapter.getType() == "User" && this.model.get("user-patchOp", false))) {
                             return adapter.toPatchBuilder(scimRequestBuilder, url)
                                           .sendRequest();
@@ -241,7 +242,7 @@ public class ScimClient {
                 }));
                 if (!response.isSuccess()) {
                     int statusCode = response.getHttpStatus();
-                    if (statusCode == 405 && adapter.getType().equals("Group") && !this.model.get("group-patchOp", false)) {
+                    if (statusCode == 405 && adapter.getType().equals("Group") && !this.model.get(GROUP_PATCH_OP_KEY, false)) {
                         LOGGER.infof("PUT not supported (405) for group %s, falling back to PATCH", adapter.getId());
                         response = adapter.toPatchBuilder(scimRequestBuilder, url).sendRequest();
                     }
@@ -334,7 +335,7 @@ public class ScimClient {
             AdapterFactory<GroupModel, Group, GroupAdapter> factory,
             String groupId, String userId, boolean isAdd) {
 
-        if (!this.model.get("group-patchOp", false)) {
+        if (!this.model.get(GROUP_PATCH_OP_KEY, false)) {
             var group = session.groups().getGroupById(
                     session.getContext().getRealm(), groupId);
             this.replace(factory, group);
@@ -377,6 +378,36 @@ public class ScimClient {
                         groupId, userId);
             }
         }
+    }
+
+    /**
+     * Ensures a federated user's membership in one group is reflected in SCIM:
+     * the SCIM group exists, and the user is a member. Used by the LDAP-import
+     * path, which has no membership delta to work from and must re-assert current
+     * memberships on every import (additions only — removals are out of scope).
+     *
+     * <p>Both underlying operations are idempotent, so re-asserting every import
+     * is cheap after the first time: {@link #create} short-circuits once the
+     * group has a local mapping, and the member-add is a single-member delta
+     * PATCH the server already has.
+     *
+     * <p>When {@code group-patchOp=false}, {@link #patchGroupMembership} falls
+     * back to a full {@code replace} that itself provisions the group and the
+     * membership, so the explicit ensure-group {@link #create} is redundant and
+     * skipped. A missing local group is logged and skipped.
+     */
+    public void ensureGroupMembership(
+            AdapterFactory<GroupModel, Group, GroupAdapter> factory,
+            String groupId, String userId) {
+        var group = session.groups().getGroupById(session.getContext().getRealm(), groupId);
+        if (group == null) {
+            LOGGER.infof("Skipping membership ensure: group %s not found locally", groupId);
+            return;
+        }
+        if (this.model.get(GROUP_PATCH_OP_KEY, false)) {
+            this.create(factory, group);
+        }
+        this.patchGroupMembership(factory, groupId, userId, true);
     }
 
     public <M extends RoleMapperModel, S extends ResourceNode, A extends Adapter<M, S>> void refreshResources(
