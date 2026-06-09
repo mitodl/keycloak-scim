@@ -451,6 +451,52 @@ mapping rows get cleared via the `delete()` path, and nothing remains
 for our reconciler to find on its next tick. No version detection
 needed; works on every supported Keycloak release.
 
+## Group-membership propagation (shipped)
+
+When `onImportUserFromLDAP` fires, `ScimLdapStorageMapper` now also
+propagates the imported user's current group memberships to SCIM via
+`ScimClient.ensureGroupMembership`. For each group the user belongs
+to at import time, the call sequence is:
+
+1. **Ensure the group exists in SCIM.** `ensureGroupMembership` issues
+   an idempotent group create (short-circuits when a local mapping
+   already exists). When the SCIM provider component has
+   `group-patchOp=false` this step is skipped — the `replace` path
+   exercised during a normal group sync already covers it.
+2. **Add the member via delta PATCH.** A single-member ADD PATCH
+   (RFC 7644) is sent for the user. This is the same delta-PATCH
+   mechanism used by the `GROUP_MEMBERSHIP` event-listener path.
+
+This covers additions only. Membership is re-asserted on every import,
+so periodic and full syncs self-heal any drift.
+
+### Operator requirement
+
+The SCIM provider component must have **both** `propagation-user=true`
+and `propagation-group=true` enabled. Membership resolution looks up
+the user's SCIM resource id under the same component, so a component
+configured for group propagation alone cannot resolve member ids and
+will skip group-membership propagation silently. A single component
+covering both scopes is the supported configuration.
+
+### Lazy-import convergence
+
+On a one-shot lazy import (a single user login triggers federation
+fetch), the group-membership task may run before the user's SCIM
+mapping has been persisted and skip. This is the expected behaviour:
+the next periodic sync re-asserts all memberships, so the state
+converges without operator intervention. The accepted lag is one sync
+interval.
+
+### Not yet handled
+
+- **Membership removal.** When a user is dropped from an LDAP group,
+  the removal is not propagated to SCIM. This is a deferred
+  reconciler-style follow-up (analogous to the user-deletion gap
+  tracked in scenario 4 above).
+- **Group rename and delete for federated groups.** Name changes and
+  deletions of groups that originate in LDAP are not yet propagated.
+
 ## References
 
 - [mitodl/keycloak-scim README](https://github.com/mitodl/keycloak-scim/blob/main/README.md)

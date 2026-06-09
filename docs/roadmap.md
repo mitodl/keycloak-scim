@@ -27,9 +27,23 @@ touches both.
   (wire shape) and `ScimGroupPropagationIT` (end-to-end add/remove).
   Note: this covers membership *changes*; a full group `replace` (name
   edits, sync-refresh) still sends the whole list via `toPatchBuilder`.
-- **LDAP-federated group membership.** No `onImportGroupFromLDAP`
-  analogue in the LDAP mapper. Groups federated from LDAP don't
-  propagate to SCIM. Architectural addition.
+- **LDAP-federated group membership.** _Done._ Federated users'
+  current group memberships now propagate to SCIM via
+  `ScimLdapStorageMapper.onImportUserFromLDAP` →
+  `ScimClient.ensureGroupMembership`: for each group the imported
+  user belongs to, the mapper first ensures the SCIM group exists
+  (idempotent create; skipped when `group-patchOp=false` because the
+  `replace` fallback already covers it), then adds the member via a
+  single-member delta PATCH. Additions only; membership is
+  re-asserted on every import. Requires the SCIM provider component
+  to enable both `propagation-user=true` and `propagation-group=true`
+  — membership resolution looks up the user's SCIM mapping under the
+  same component id, so a group-only component cannot resolve
+  members. Verified by `EnsureGroupMembershipTest` (unit) and
+  `ScimLdapGroupMembershipIT` (integration). Membership REMOVAL
+  (user dropped from an LDAP group) is not yet handled; it is a
+  deferred reconciler-style follow-up. Group rename and delete for
+  federated groups are also not yet handled.
 
 ## Auth-mode follow-ups
 
@@ -89,6 +103,17 @@ a concrete IdP that requires it.
 
 ## Performance / observability
 
+- **Redundant per-sync membership re-assertions.** On a full sync,
+  `onImportUserFromLDAP` fires multiple times per user (Keycloak
+  calls it for each mapper in the chain, and again on each sync
+  pass), so each invocation re-asserts all of that user's group
+  memberships. The operations are idempotent (op=add on an existing
+  member is a no-op at the SCIM level), but the call volume grows
+  linearly with users × groups × invocations-per-user-per-sync. The
+  existing user-propagation path has the same multiplication
+  characteristic. A potential optimization: deduplicate within a sync
+  window (e.g. a per-session seen-set) so each membership is
+  asserted at most once per sync run.
 - **Perf-rig sibling container.** The Testcontainers + Keycloak +
   WireMock setup routes SCIM traffic through an SSH tunnel
   (`host.testcontainers.internal`), adding ~25–30 ms per request to
