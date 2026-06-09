@@ -25,3 +25,13 @@ givenName: Bob
 uid: bob
 mail: bob@test.local
 userPassword: bobpass
+
+dn: ou=groups,dc=test,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+dn: cn=engineers,ou=groups,dc=test,dc=local
+objectClass: groupOfNames
+cn: engineers
+member: uid=alice,ou=users,dc=test,dc=local
+member: uid=bob,ou=users,dc=test,dc=local

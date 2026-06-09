@@ -166,6 +166,45 @@ public abstract class IntegrationTestBase {
     }
 
     /**
+     * Like {@link #newRealmWithScimAndLdapAndConfig}, but additionally attaches
+     * a group-ldap-mapper to the LDAP provider so an LDAP user's group
+     * memberships (seeded as {@code groupOfNames} entries under
+     * {@code ou=groups,dc=test,dc=local}) materialize onto the imported
+     * Keycloak UserModel via {@code getGroupsStream()}.
+     */
+    protected TestRealm newRealmWithScimAndLdapGroups(
+            Consumer<MultivaluedHashMap<String, String>> scimCfgCustomizer) {
+        TestRealm r = newRealmWithScimAndLdapAndConfig(scimCfgCustomizer);
+        addLdapGroupMapper(r.realm(), r.ldapId());
+        return r;
+    }
+
+    protected void addLdapGroupMapper(RealmResource realm, String ldapId) {
+        var mapper = new ComponentRepresentation();
+        mapper.setName("groups");
+        mapper.setProviderType("org.keycloak.storage.ldap.mappers.LDAPStorageMapper");
+        mapper.setProviderId("group-ldap-mapper");
+        mapper.setParentId(ldapId);
+        var cfg = new MultivaluedHashMap<String, String>();
+        cfg.putSingle("groups.dn", "ou=groups,dc=test,dc=local");
+        cfg.putSingle("membership.ldap.attribute", "member");
+        cfg.putSingle("membership.attribute.type", "DN");
+        cfg.putSingle("group.name.ldap.attribute", "cn");
+        cfg.putSingle("group.object.classes", "groupOfNames");
+        cfg.putSingle("mode", "READ_ONLY");
+        cfg.putSingle("preserve.group.inheritance", "false");
+        cfg.putSingle("membership.user.ldap.attribute", "uid");
+        cfg.putSingle("groups.path", "/");
+        cfg.putSingle("user.roles.retrieve.strategy", "LOAD_GROUPS_BY_MEMBER_ATTRIBUTE");
+        mapper.setConfig(cfg);
+        try (Response r = realm.components().add(mapper)) {
+            if (r.getStatus() >= 400) {
+                throw new IllegalStateException("LDAP group mapper create failed: " + r.getStatus());
+            }
+        }
+    }
+
+    /**
      * LDAP-only realm with no SCIM provider and no scim-ldap-sync mapper —
      * used by perf tests to measure Keycloak's pure federation-import cost
      * as a baseline, isolating plugin overhead.
