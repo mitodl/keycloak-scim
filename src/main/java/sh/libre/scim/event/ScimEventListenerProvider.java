@@ -83,10 +83,7 @@ public class ScimEventListenerProvider implements EventListenerProvider {
                 }
             }
             if (event.getOperationType() == OperationType.DELETE) {
-                var user = getUser(userId);
-                if (user.isEmailVerified()) {
-                    dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.delete(UserAdapter.class, userId));
-                }
+                dispatcher.run(ScimDispatcher.SCOPE_USER, client -> client.delete(UserAdapter.class, userId));
             }
         }
         if (event.getResourceType() == ResourceType.GROUP) {
