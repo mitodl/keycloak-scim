@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import de.captaingoldfish.scim.sdk.client.ScimRequestBuilder;
@@ -154,7 +156,10 @@ public class UserAdapter extends Adapter<UserModel, User> {
     public User toSCIM(Boolean addMeta) {
         var user = new User();
         user.setExternalId(id);
-        user.setUserName(username);
+        var model = getModel();
+        String usernameSource = model.getFirst("username-source");
+        String scimUsername = "email".equals(usernameSource) && email != null ? email : username;
+        user.setUserName(scimUsername);
         user.setId(externalId);
         user.setDisplayName(displayName);
         Name name = new Name();
@@ -238,7 +243,15 @@ public class UserAdapter extends Adapter<UserModel, User> {
 
     @Override
     public Stream<UserModel> getResourceStream() {
-        return this.session.users().searchForUserStream(this.session.getContext().getRealm(), Map.of(UserModel.ENABLED, "true"));
+        var filteredGroups = getFilteredGroups().collect(Collectors.toSet());
+        if (filteredGroups.isEmpty()) {
+            return this.session.users().searchForUserStream(this.session.getContext().getRealm(), Map.of(UserModel.ENABLED, "true"));
+        }
+        Set<UserModel> users = new HashSet<>();
+        for (var group : filteredGroups) {
+            session.users().getGroupMembersStream(realm, group).forEach(users::add);
+        }
+        return users.stream().filter(u -> u.isEnabled());
     }
 
     @Override

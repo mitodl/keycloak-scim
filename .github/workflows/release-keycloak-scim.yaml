@@ -3,32 +3,78 @@ name: Build keycloak-scim and release
 on:
   push:
     branches:
-      - 'main'
+      - "main"
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
 
 jobs:
+  # A release must not be able to ship a jar that shadows Keycloak's own libraries, so run the same
+  # checks the PR runs and gate the release on them.
+  validate:
+    uses: ./.github/workflows/validate.yaml
+
   build:
-    runs-on: ubuntu-22.04
+    needs: validate
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
 
-    - name: Build with Gradle
-      run: gradle shadowJar
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 9.2.1
+          cache-disabled: true
 
-    - name: Create Release with jar file
-      uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: false
-        title: "keycloak-scim release"
-        files: |
-          ./build/libs/*.jar
+      - name: Get version
+        run: echo "VERSION=$(./gradlew -q properties | grep '^version:' | cut -d' ' -f2)" >> $GITHUB_ENV
+
+      # A published release is IMMUTABLE, because consumers pin the asset by URL *and* sha256 - the
+      # Keycloak initContainer in daikin-dsv/deploy verifies the digest and refuses to start the pod
+      # on a mismatch. Re-running this workflow for a version that already exists would rebuild the
+      # jar (Gradle jars are not byte-reproducible) and replace the asset behind an unchanged URL,
+      # breaking every pinned consumer.
+      #
+      # This is also what makes it safe to cut a release from a branch via workflow_dispatch, test
+      # that exact jar on a cluster, and only then merge: the push-to-main run finds the version
+      # already published and stops, so the bytes that were tested are the bytes that stay.
+      #
+      # To publish again, bump `version` in build.gradle.
+      - name: Check whether this version is already published
+        id: released
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::v${VERSION} is already published - not republishing. Bump 'version' in build.gradle to cut a new release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build with Gradle
+        run: ./gradlew shadowJar
+
+      # Belt and braces: `validate` proved the checked-in source is clean, this proves the exact
+      # jar about to be attached to the release is.
+      - name: Check for classpath collisions with Keycloak
+        run: ./.github/scripts/check-classpath-overlap.sh
+
+      - name: Smoke-test the plugin on a real Keycloak
+        run: ./.github/scripts/smoke-test-plugin.sh
+
+      - name: Create Release with jar file
+        if: steps.released.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ env.VERSION }}"
+          name: "keycloak-scim ${{ env.VERSION }} release"
+          files: ./build/libs/*.jar
+          generate_release_notes: true

@@ -17,6 +17,8 @@ import org.keycloak.storage.UserStorageProviderFactory;
 import org.keycloak.storage.UserStorageProviderModel;
 import org.keycloak.storage.user.ImportSynchronization;
 import org.keycloak.storage.user.SynchronizationResult;
+import java.util.ArrayList;
+import java.util.List;
 
 import sh.libre.scim.core.GroupAdapter;
 import sh.libre.scim.core.ScimDispatcher;
@@ -72,18 +74,21 @@ public class ScimStorageProviderFactory
                 .name("propagation-user")
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
                 .label("Enable user propagation")
+                .helpText("Enable syncing users between Keycloak and the SCIM server during sync operations.")
                 .defaultValue("true")
                 .add()
                 .property()
                 .name("propagation-group")
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
                 .label("Enable group propagation")
+                .helpText("Enable syncing groups between Keycloak and the SCIM server during sync operations.")
                 .defaultValue("true")
                 .add()
                 .property()
                 .name("sync-import")
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
                 .label("Enable import during sync")
+                .helpText("Enable importing users and groups from the SCIM server during sync operations. Disable this for one-way sync from Keycloak to SCIM.")
                 .add()
                 .property()
                 .name("sync-import-action")
@@ -97,19 +102,48 @@ public class ScimStorageProviderFactory
                 .name("sync-refresh")
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
                 .label("Enable refresh during sync")
+                .helpText("Enable fetching current data from the SCIM server before performing sync operations to ensure consistency and avoid conflicts.")
                 .add()
                 .property()
                 .name("group-patchOp")
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
-                .label("Use patchOp for groups")
-                .helpText("Only used when endpoint doesn't support putGroup API operation (full replace)")
+                .label("Use PATCH for groups")
+                .helpText("When enabled, use PATCH operations for groups. When disabled, use PUT operations.")
                 .defaultValue(false)
                 .add()
                 .property()
                 .name("user-patchOp")
                 .type(ProviderConfigProperty.BOOLEAN_TYPE)
-                .label("Use patchOp for users")
-                .helpText("Only used when endpoint doesn't support putUser API operation (full replace)")
+                .label("Use PATCH for users")
+                .helpText("When enabled, use PATCH operations for users. When disabled, use PUT operations.")
+                .defaultValue(false)
+                .add()
+                .property()
+                .name("group-filter")
+                .type(ProviderConfigProperty.STRING_TYPE)
+                .label("Group filter patterns")
+                .helpText("Comma-separated regex patterns for group names to sync (e.g., 'admin.*,.*test'). Leave empty to sync all groups.")
+                .add()
+                .property()
+                .name("username-source")
+                .type(ProviderConfigProperty.LIST_TYPE)
+                .label("Username source")
+                .helpText("The user attribute to use as SCIM userName.")
+                .options("username", "email")
+                .defaultValue("username")
+                .add()
+                .property()
+                .name("map-existing-users")
+                .type(ProviderConfigProperty.BOOLEAN_TYPE)
+                .label("Map to Existing Users on Email Match")
+                .helpText("If enabled, when creating a user fails due to email conflict, map to the existing remote user instead of failing.")
+                .defaultValue(false)
+                .add()
+                .property()
+                .name("map-existing-groups")
+                .type(ProviderConfigProperty.BOOLEAN_TYPE)
+                .label("Map to Existing Groups on Name Match")
+                .helpText("If enabled, when creating a group fails due to name conflict, map to the existing remote group instead of failing.")
                 .defaultValue(false)
                 .add()
                 .build();
@@ -135,7 +169,7 @@ public class ScimStorageProviderFactory
     public SynchronizationResult sync(KeycloakSessionFactory sessionFactory, String realmId,
             UserStorageProviderModel model) {
         LOGGER.info("sync");
-        var result = new SynchronizationResult();
+        var result = new ScimSynchronizationResult();
         KeycloakModelUtils.runJobInTransaction(sessionFactory, new KeycloakSessionTask() {
 
             @Override

@@ -1,0 +1,57 @@
+name: Validate
+
+# Guards against the class of bug that took passkey login down in production on 2026-08-20:
+# a provider jar bundling a library Keycloak already ships, which then shadows the server's copy
+# for the WHOLE server. See .github/scripts/check-classpath-overlap.sh for the full story.
+#
+# `workflow_call` so the release workflow can require these before it publishes a jar.
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 9.2.1
+          cache-disabled: true
+
+      # Runs the in-build `verifyNoClasspathPollution` guard as part of `check`. That guard is the
+      # fast, offline one: it knows a hardcoded list of package prefixes. The two steps below are
+      # the ones that check against the real server.
+      - name: Build and run the offline guard
+        run: ./gradlew check
+
+      # The durable check. Derives the forbidden package set from the actual Keycloak distribution
+      # instead of a hardcoded list, so a newly-added transitive that collides is caught by name on
+      # the PR that adds it.
+      - name: Check for classpath collisions with Keycloak
+        run: ./.github/scripts/check-classpath-overlap.sh
+
+      # The complement: proves the relocate/exclude rules above did not remove something the plugin
+      # actually needs. A jar that is "clean" but no longer registers its SPIs is just as broken.
+      - name: Smoke-test the plugin on a real Keycloak
+        run: ./.github/scripts/smoke-test-plugin.sh
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: keycloak-scim-jar
+          path: build/libs/*-all.jar
+          if-no-files-found: error
